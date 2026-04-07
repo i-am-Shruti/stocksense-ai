@@ -512,15 +512,16 @@ def market_news(symbol):
 
 
 if __name__ == '__main__':
-    print("Starting ML Service on port 5000...")
+    port = int(os.environ.get('PORT', 5000))
+    print(f"Starting ML Service on port {port}...")
     print("Available endpoints:")
     print("  GET  /health                    - Service health check")
     print("  POST /predict                   - Get price prediction")
     print("  POST /train                     - Train model for stock")
     print("  GET  /stock/realtime/<symbol>   - Get real-time data")
-    print("  GET  /stock/history/<symbol>   - Get historical data")
+    print("  GET  /stock/history/<symbol>    - Get historical data")
     print("  GET  /stock/indicators/<symbol> - Get technical indicators")
     print("  POST /stock/compare             - Compare multiple stocks")
-    print("  GET  /stock/search             - Search stocks")
+    print("  GET  /stock/search              - Search stocks")
     print("  GET  /market/news/<symbol>     - Get market news")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=port, debug=False)
