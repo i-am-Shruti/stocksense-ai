@@ -2,7 +2,10 @@ FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY backend/backend/pom.xml .
 COPY backend/backend/src ./src
-RUN ./mvnw -DskipTests clean package
+COPY backend/backend/mvnw ./mvnw
+COPY backend/backend/mvnw.cmd ./mvnw.cmd
+COPY backend/backend/.mvn ./.mvn
+RUN chmod +x ./mvnw && ./mvnw -DskipTests clean package
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
