@@ -95,4 +95,16 @@ addFilterBefore(jwtFilter, ...)
         // Every time you hash same password → DIFFERENT result
         // But BCrypt can still VERIFY if password matches hash!
     }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
 }
