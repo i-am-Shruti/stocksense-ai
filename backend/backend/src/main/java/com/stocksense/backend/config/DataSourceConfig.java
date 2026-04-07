@@ -1,7 +1,7 @@
 package com.stocksense.backend.config;
 
+import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,30 +14,44 @@ public class DataSourceConfig {
 
     @Bean
     @Primary
-    @ConfigurationProperties("spring.datasource")
     public DataSource dataSource() {
-        String url = System.getenv("DATABASE_URL");
+        String databaseUrl = System.getenv("DATABASE_URL");
         
-        if (url != null && url.startsWith("postgres://")) {
-            // Convert postgres:// to jdbc:postgresql://
-            url = "jdbc:postgresql://" + url.replace("postgres://", "");
+        if (databaseUrl != null && databaseUrl.startsWith("postgres://")) {
+            // Parse the Neon connection string
+            // postgres://user:password@host.neon.tech/dbname?sslmode=require
             
-            // Extract username and password from URL
-            String hostPart = url.replace("jdbc:postgresql://", "");
-            String[] parts = hostPart.split("@");
-            String userInfo = parts[0];
-            String hostDb = parts[1];
+            // Remove "postgres://" prefix
+            String withoutPrefix = databaseUrl.replace("postgres://", "");
             
+            // Split at @ to get user:password and host/db
+            String[] atSplit = withoutPrefix.split("@");
+            if (atSplit.length != 2) {
+                throw new IllegalArgumentException("Invalid DATABASE_URL format");
+            }
+            
+            String userInfo = atSplit[0];
+            String hostDbParams = atSplit[1];
+            
+            // Split user:password
             String[] userPass = userInfo.split(":");
+            if (userPass.length != 2) {
+                throw new IllegalArgumentException("Invalid user:password format");
+            }
             String username = userPass[0];
             String password = userPass[1];
             
-            String[] hostDbParts = hostDb.split("/");
-            String host = hostDbParts[0];
-            String db = hostDbParts[1];
+            // Split host/db and params
+            String[] hostAndDb = hostDbParams.split("\\?")[0].split("/");
+            String host = hostAndDb[0];
+            String database = hostAndDb[1];
             
             // Build proper JDBC URL
-            String jdbcUrl = "jdbc:postgresql://" + host + "/" + db;
+            String jdbcUrl = String.format("jdbc:postgresql://%s/%s?sslmode=require", host, database);
+            
+            System.out.println("=== Using Neon DB ===");
+            System.out.println("JDBC URL: " + jdbcUrl);
+            System.out.println("Username: " + username);
             
             return DataSourceBuilder.create()
                     .url(jdbcUrl)
@@ -48,6 +62,8 @@ public class DataSourceConfig {
                     .build();
         }
         
-        return DataSourceBuilder.create().build();
+        // Fallback to default - will use application.properties settings
+        System.out.println("=== Using default DB from properties ===");
+        return null;
     }
 }
