@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8085/api';
-const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:5000';
+const API_URL = 'https://stocksense-ai-backend-sdgv.onrender.com/api';
+const ML_API_URL = 'https://stocksense-ai-bdd9.onrender.com';
 
 const api = axios.create({
     baseURL: API_URL,
