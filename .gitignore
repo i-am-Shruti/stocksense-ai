@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+venv/
+ml-service/venv/
+
+# Build outputs
+frontend/dist/
+backend/target/
+frontend/package-lock.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+nul
+*.pyc
+__pycache__/
+
+# Environment files (use .env.example instead)
+.env
+
+# ML models (can be large, might not want to commit)
+*.h5
+*.pkl
+*.joblib
