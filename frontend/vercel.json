@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://stocksense-backend.onrender.com/api/$1" },
-    { "source": "/ml/(.*)", "destination": "https://stocksense-ml.onrender.com/$1" }
+    { "source": "/api/(.*)", "destination": "https://stocksense-ai-backend-sdgv.onrender.com/api/$1" },
+    { "source": "/ml/(.*)", "destination": "https://stocksense-ai-bdd9.onrender.com/$1" }
   ]
 }
