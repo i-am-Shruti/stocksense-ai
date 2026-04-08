@@ -15,7 +15,13 @@ from model.lstm_model import LSTMStockModel
 from utils.data_processor import DataProcessor
 
 app = Flask(__name__)
-CORS(app, resources={r"/stock/*": {"origins": "*"}, r"/predict": {"origins": "*"}})
+CORS(app, resources={
+    r"/*": {"origins": [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://stocksense-ai-frontend.vercel.app"
+    ], "supports_credentials": True}
+})
 
 loaded_models = {}
 loaded_scalers = {}
