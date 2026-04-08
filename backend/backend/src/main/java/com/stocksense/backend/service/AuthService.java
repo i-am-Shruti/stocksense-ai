@@ -9,7 +9,10 @@ import com.stocksense.backend.model.User;
 import com.stocksense.backend.repository.UserRepository;
 import com.stocksense.backend.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
-import  lombok.extern.slf4j.Slf4j;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,17 +24,20 @@ import org.springframework.stereotype.Service;
 @Slf4j
 
 public class AuthService {
-    // final = constructor injection (recommended way)
     private final UserRepository userRepository;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    //REGISTER
+    private OtpService otpService;
 
-    public  AuthResponseDTO register(RegisterRequestDTO request){
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setOtpService(OtpService otpService) {
+        this.otpService = otpService;
+    }
+
+    @Cacheable(value = "userEmail", key = "#request.email", unless = "#result == null")
+    public AuthResponseDTO register(RegisterRequestDTO request){
         log.info("Register attempt for email: {}", request.getEmail());
-        // {} is placeholder — Slf4j fills it with actual value
-        // Output: "Register attempt for email: shruti@gmail.com"
 
         if(userRepository.existsByEmail(request.getEmail())) {
             log.warn("Email already exists: {}", request.getEmail());
@@ -41,13 +47,8 @@ public class AuthService {
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
-
-        // Step 3: Encrypt password before saving
-        // NEVER save plain text password in database!
-        String encryptedPassword = passwordEncoder.encode(request.getPassword());
-
-        user.setPassword(encryptedPassword);
-        user.setRole("USER");        // default role
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER");
         user.setIsActive(true);
 
         User savedUser = userRepository.save(user);
@@ -63,7 +64,7 @@ public class AuthService {
                 );
     }
 
-    public  AuthResponseDTO login(LoginRequestDTO request) {
+    public AuthResponseDTO login(LoginRequestDTO request) {
         log.info("Login attempt for email: {}", request.getEmail());
 
         User user = userRepository.findByEmail(request.getEmail())
@@ -71,33 +72,13 @@ public class AuthService {
                     log.warn("User not found: {}", request.getEmail());
                     return new RuntimeException("Invalid email or password");
                 });
-//
-//        if (!user.getIsActive()) {
-//            log.warn("Inactive account login attemot; {}", request.getEmail());
-//            throw new InvalidCredentialsException("Account is disabled!");
-//        }
-//
-//        boolean passwordMatches = passwordEncoder.matches(
-//                request.getPassword(),
-//                user.getPassword()
-//        );
-//
-//        if (!passwordMatches) {
-//            log.warn("Invalid password for: {}", request.getEmail());
-//            throw new InvalidCredentialsException("Invalid email or password!");
-//        }
-        // ONE LINE replaces steps 1, 2, 3!
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
                         request.getPassword()
                 )
         );
-        // ↑ internally does:
-        // → find user by email (UserDetailsService)
-        // → check password (PasswordEncoder)
-        // → check if account active
-        // → throws exception if any check fails
 
         String token = jwtUtils.generateToken(user.getEmail());
         log.info("Login successful for: {}", user.getEmail());
@@ -111,22 +92,33 @@ public class AuthService {
         );
     }
 
-        public User getUserProfile(String email) {
-            return userRepository.findByEmail(email)
-                    .orElseThrow(() ->
-                            new RuntimeException("User not found!")
-                    );
+    @Cacheable(value = "userProfile", key = "#email")
+    public User getUserProfile(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found!")
+                );
+    }
+
+    @Async
+    public void sendForgotPasswordOtpAsync(String email) {
+        try {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("Email not registered"));
+            
+            otpService.generateOtp(email);
+            log.info("Forgot password OTP sent to: {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send OTP: {}", e.getMessage());
         }
+    }
 
     public String sendForgotPasswordOtp(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Email not registered"));
-        
-        otpService.generateOtp(email);
-        log.info("Forgot password OTP sent to: {}", email);
+        sendForgotPasswordOtpAsync(email);
         return "OTP sent to your email";
     }
 
+    @CacheEvict(value = "userProfile", key = "#email")
     public String resetPassword(String email, String otp, String newPassword) {
         if (!otpService.validateOtp(email, otp)) {
             throw new RuntimeException("Invalid or expired OTP");
@@ -141,13 +133,22 @@ public class AuthService {
         return "Password reset successful";
     }
 
+    @Async
+    public void sendRegistrationOtpAsync(String email) {
+        try {
+            otpService.generateOtp(email);
+            log.info("Registration OTP sent to: {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send OTP: {}", e.getMessage());
+        }
+    }
+
     public String sendRegistrationOtp(String email) {
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException("Email already registered");
         }
         
-        otpService.generateOtp(email);
-        log.info("Registration OTP sent to: {}", email);
+        sendRegistrationOtpAsync(email);
         return "OTP sent to your email";
     }
 
@@ -180,6 +181,7 @@ public class AuthService {
         );
     }
 
+    @CacheEvict(value = {"userProfile", "userEmail"}, allEntries = true)
     public AuthResponseDTO updateProfile(String email, String name, String currentPassword, String newPassword) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -211,13 +213,6 @@ public class AuthService {
                 updatedUser.getRole(),
                 "Profile updated!"
         );
-    }
-
-    private OtpService otpService;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    public void setOtpService(OtpService otpService) {
-        this.otpService = otpService;
     }
 
     public boolean validateOtp(String email, String otp) {

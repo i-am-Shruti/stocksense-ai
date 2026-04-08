@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useContext, useState, useCallback } from 'react';
 import { AuthContext } from '../context/AuthContext';
 
 export const useAuth = () => {
@@ -12,3 +12,18 @@ export const useAuth = () => {
 export const isAuthenticated = () => {
     return !!localStorage.getItem('token');
 };
+
+export const useDebounce = (value, delay) => {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+        return () => clearTimeout(handler);
+    }, [value, delay]);
+
+    return debouncedValue;
+};
+
+import { useEffect } from 'react';

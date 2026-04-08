@@ -8,29 +8,59 @@ const Register = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [errors, setErrors] = useState({});
     const { register } = useAuth();
     const navigate = useNavigate();
 
+    const validateForm = () => {
+        const newErrors = {};
+        
+        if (!name.trim()) {
+            newErrors.name = 'Name is required';
+        } else if (name.length < 2) {
+            newErrors.name = 'Name must be at least 2 characters';
+        }
+        
+        if (!email.trim()) {
+            newErrors.email = 'Email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            newErrors.email = 'Please enter a valid email';
+        }
+        
+        if (!password) {
+            newErrors.password = 'Password is required';
+        } else if (password.length < 6) {
+            newErrors.password = 'Password must be at least 6 characters';
+        }
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (password.length < 6) {
-            toast.error('Password must be at least 6 characters!');
+        
+        if (!validateForm()) {
             return;
         }
+        
         setLoading(true);
         try {
             await register(name, email, password);
-            toast.success('Registration successful!');
+            toast.success('Registration successful! Welcome to StockSense AI!');
             navigate('/dashboard');
         } catch (error) {
-            toast.error(
-                error.response?.data?.message ||
-                'Registration failed!'
-            );
+            const message = error.response?.data?.message || 'Registration failed!';
+            toast.error(message);
         } finally {
             setLoading(false);
         }
     };
+
+    const getInputStyle = (field) => ({
+        ...styles.input,
+        borderColor: errors[field] ? '#ff4757' : '#333366'
+    });
 
     return (
         <div style={styles.container}>
@@ -45,24 +75,30 @@ const Register = () => {
                         <input
                             type="text"
                             value={name}
-                            onChange={(e) =>
-                                setName(e.target.value)}
+                            onChange={(e) => {
+                                setName(e.target.value);
+                                setErrors({...errors, name: ''});
+                            }}
                             placeholder="Shruti Priya"
-                            style={styles.input}
-                            required
+                            style={getInputStyle('name')}
+                            disabled={loading}
                         />
+                        {errors.name && <span style={styles.errorText}>{errors.name}</span>}
                     </div>
                     <div style={styles.field}>
                         <label style={styles.label}>Email</label>
                         <input
                             type="email"
                             value={email}
-                            onChange={(e) =>
-                                setEmail(e.target.value)}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setErrors({...errors, email: ''});
+                            }}
                             placeholder="shruti@gmail.com"
-                            style={styles.input}
-                            required
+                            style={getInputStyle('email')}
+                            disabled={loading}
                         />
+                        {errors.email && <span style={styles.errorText}>{errors.email}</span>}
                     </div>
                     <div style={styles.field}>
                         <label style={styles.label}>
@@ -71,23 +107,31 @@ const Register = () => {
                         <input
                             type="password"
                             value={password}
-                            onChange={(e) =>
-                                setPassword(e.target.value)}
+                            onChange={(e) => {
+                                setPassword(e.target.value);
+                                setErrors({...errors, password: ''});
+                            }}
                             placeholder="Min 6 characters"
-                            style={styles.input}
-                            required
+                            style={getInputStyle('password')}
+                            disabled={loading}
                         />
+                        {errors.password && <span style={styles.errorText}>{errors.password}</span>}
                     </div>
                     <button
                         type="submit"
                         style={{
                             ...styles.button,
-                            opacity: loading ? 0.7 : 1
+                            opacity: loading ? 0.7 : 1,
+                            cursor: loading ? 'not-allowed' : 'pointer'
                         }}
                         disabled={loading}
                     >
-                        {loading ? 'Creating...' :
-                            'Create Account'}
+                        {loading ? (
+                            <span style={styles.spinnerContainer}>
+                                <span style={styles.spinner}></span>
+                                Creating Account...
+                            </span>
+                        ) : 'Create Account'}
                     </button>
                 </form>
                 <p style={styles.linkText}>
@@ -146,7 +190,14 @@ const styles = {
         color: '#ffffff',
         fontSize: '16px',
         boxSizing: 'border-box',
-        outline: 'none'
+        outline: 'none',
+        transition: 'border-color 0.2s'
+    },
+    errorText: {
+        color: '#ff4757',
+        fontSize: '12px',
+        marginTop: '4px',
+        display: 'block'
     },
     button: {
         width: '100%',
@@ -158,7 +209,22 @@ const styles = {
         fontSize: '16px',
         fontWeight: 'bold',
         cursor: 'pointer',
-        marginTop: '8px'
+        marginTop: '8px',
+        transition: 'all 0.2s'
+    },
+    spinnerContainer: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px'
+    },
+    spinner: {
+        width: '16px',
+        height: '16px',
+        border: '2px solid #000',
+        borderTop: '2px solid transparent',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
     },
     linkText: {
         color: '#aaaaaa',

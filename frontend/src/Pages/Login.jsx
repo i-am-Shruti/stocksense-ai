@@ -7,20 +7,36 @@ const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
+    const [emailError, setEmailError] = useState('');
     const { login } = useAuth();
     const navigate = useNavigate();
 
+    const validateEmail = (email) => {
+        const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return re.test(email);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!email.trim()) {
+            setEmailError('Email is required');
+            return;
+        }
+        if (!validateEmail(email)) {
+            setEmailError('Please enter a valid email');
+            return;
+        }
+        setEmailError('');
+        
         setLoading(true);
         try {
             await login(email, password);
             toast.success('Login successful!');
             navigate('/dashboard');
         } catch (error) {
-            toast.error(
-                error.response?.data?.message || 'Login failed!'
-            );
+            const message = error.response?.data?.message || 'Login failed! Please check your credentials.';
+            toast.error(message);
         } finally {
             setLoading(false);
         }
@@ -37,13 +53,17 @@ const Login = () => {
                         <input
                             type="email"
                             value={email}
-                            onChange={(e) =>
-                                setEmail(e.target.value)}
+                            onChange={(e) => {
+                                setEmail(e.target.value);
+                                setEmailError('');
+                            }}
                             placeholder="shruti@gmail.com"
-                            style={styles.input}
+                            style={{...styles.input, borderColor: emailError ? '#ff4757' : '#333366'}}
                             required
                             autoComplete="email"
+                            disabled={loading}
                         />
+                        {emailError && <span style={styles.errorText}>{emailError}</span>}
                     </div>
                     <div style={styles.field}>
                         <label style={styles.label}>
@@ -58,17 +78,24 @@ const Login = () => {
                             style={styles.input}
                             required
                             autoComplete="current-password"
+                            disabled={loading}
                         />
                     </div>
                     <button
                         type="submit"
                         style={{
                             ...styles.button,
-                            opacity: loading ? 0.7 : 1
+                            opacity: loading ? 0.7 : 1,
+                            cursor: loading ? 'not-allowed' : 'pointer'
                         }}
                         disabled={loading}
                     >
-                        {loading ? 'Logging in...' : 'Login'}
+                        {loading ? (
+                            <span style={styles.spinnerContainer}>
+                                <span style={styles.spinner}></span>
+                                Logging in...
+                            </span>
+                        ) : 'Login'}
                     </button>
                 </form>
                 <p style={styles.linkText}>
@@ -134,7 +161,14 @@ const styles = {
         color: '#ffffff',
         fontSize: '16px',
         boxSizing: 'border-box',
-        outline: 'none'
+        outline: 'none',
+        transition: 'border-color 0.2s'
+    },
+    errorText: {
+        color: '#ff4757',
+        fontSize: '12px',
+        marginTop: '4px',
+        display: 'block'
     },
     button: {
         width: '100%',
@@ -146,7 +180,22 @@ const styles = {
         fontSize: '16px',
         fontWeight: 'bold',
         cursor: 'pointer',
-        marginTop: '8px'
+        marginTop: '8px',
+        transition: 'all 0.2s'
+    },
+    spinnerContainer: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px'
+    },
+    spinner: {
+        width: '16px',
+        height: '16px',
+        border: '2px solid #000',
+        borderTop: '2px solid transparent',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
     },
     linkText: {
         color: '#aaaaaa',

@@ -6,17 +6,38 @@ import os
 import yfinance as yf
 import sys
 from datetime import datetime, timedelta
+from functools import lru_cache
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 sys.path.append(os.path.dirname(__file__))
 from model.lstm_model import LSTMStockModel
 from utils.data_processor import DataProcessor
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/stock/*": {"origins": "*"}, r"/predict": {"origins": "*"}})
 
 loaded_models = {}
 loaded_scalers = {}
 training_status = {}
+
+executor = ThreadPoolExecutor(max_workers=4)
+
+stock_cache = {}
+stock_cache_lock = threading.Lock()
+STOCK_CACHE_TTL = 60
+
+def get_cached_stock(symbol):
+    with stock_cache_lock:
+        if symbol in stock_cache:
+            data, timestamp = stock_cache[symbol]
+            if (datetime.now() - timestamp).total_seconds() < STOCK_CACHE_TTL:
+                return data
+    return None
+
+def set_cached_stock(symbol, data):
+    with stock_cache_lock:
+        stock_cache[symbol] = (data, datetime.now())
 
 def get_model_and_scaler(symbol):
     if symbol not in loaded_models:
@@ -32,6 +53,40 @@ def get_model_and_scaler(symbol):
         loaded_scalers[symbol] = joblib.load(path)
 
     return loaded_models[symbol], loaded_scalers[symbol]
+
+
+@lru_cache(maxsize=100)
+def get_popular_stocks():
+    return {
+        "AAPL": "Apple Inc.",
+        "GOOGL": "Alphabet Inc.",
+        "GOOG": "Alphabet Inc.",
+        "MSFT": "Microsoft Corporation",
+        "AMZN": "Amazon.com Inc.",
+        "TSLA": "Tesla Inc.",
+        "META": "Meta Platforms Inc.",
+        "NVDA": "NVIDIA Corporation",
+        "NFLX": "Netflix Inc.",
+        "AMD": "Advanced Micro Devices",
+        "INTC": "Intel Corporation",
+        "DIS": "The Walt Disney Company",
+        "PYPL": "PayPal Holdings Inc.",
+        "ADBE": "Adobe Inc.",
+        "CRM": "Salesforce Inc.",
+        "V": "Visa Inc.",
+        "JPM": "JPMorgan Chase & Co.",
+        "JNJ": "Johnson & Johnson",
+        "WMT": "Walmart Inc.",
+        "PG": "Procter & Gamble Co.",
+        "KO": "The Coca-Cola Company",
+        "PEP": "PepsiCo Inc.",
+        "MRK": "Merck & Co. Inc.",
+        "ABBV": "AbbVie Inc.",
+        "T": "AT&T Inc.",
+        "VZ": "Verizon Communications",
+        "XOM": "Exxon Mobil Corporation",
+        "CVX": "Chevron Corporation"
+    }
 
 
 def simple_prediction(df):
@@ -134,6 +189,9 @@ def health():
 def train():
     try:
         data = request.get_json()
+        if not data or 'symbol' not in data:
+            return jsonify({"error": "symbol required"}), 400
+            
         symbol = data['symbol'].upper()
 
         # Check if already training
@@ -145,21 +203,25 @@ def train():
 
         training_status[symbol] = {"status": "training", "start_time": datetime.now().isoformat()}
 
-        from model.train_model import train_for_symbol
-        train_for_symbol(symbol)
+        def train_async():
+            try:
+                from model.train_model import train_for_symbol
+                train_for_symbol(symbol)
+                loaded_models.pop(symbol, None)
+                loaded_scalers.pop(symbol, None)
+                training_status[symbol] = {"status": "completed", "start_time": training_status[symbol].get('start_time')}
+            except Exception as e:
+                training_status[symbol] = {"status": "failed", "error": str(e)}
 
-        loaded_models.pop(symbol, None)
-        loaded_scalers.pop(symbol, None)
+        executor.submit(train_async)
         
-        training_status[symbol] = {"status": "completed", "start_time": training_status[symbol].get('start_time')}
-
         return jsonify({
-            "message": f"Model trained for {symbol}!",
-            "symbol": symbol
+            "message": f"Training started for {symbol}!",
+            "symbol": symbol,
+            "status": "training"
         })
 
     except Exception as e:
-        training_status.pop(data.get('symbol', 'UNKNOWN'), None)
         print(f"Training error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
@@ -239,11 +301,17 @@ def predict():
 @app.route('/stock/realtime/<symbol>', methods=['GET'])
 def realtime(symbol):
     try:
-        ticker = yf.Ticker(symbol.upper())
+        symbol_upper = symbol.upper()
+        
+        cached = get_cached_stock(symbol_upper)
+        if cached:
+            return jsonify(cached)
+        
+        ticker = yf.Ticker(symbol_upper)
         info = ticker.info
 
-        return jsonify({
-            "symbol": symbol.upper(),
+        result = {
+            "symbol": symbol_upper,
             "companyName": info.get('longName', 'Unknown'),
             "currentPrice": info.get('currentPrice', 0),
             "openPrice": info.get('open', 0),
@@ -257,17 +325,45 @@ def realtime(symbol):
             "fiftyTwoWeekLow": info.get('fiftyTwoWeekLow', 0),
             "targetMeanPrice": info.get('targetMeanPrice', 0),
             "recommendationKey": info.get('recommendationKey', 'none')
-        })
+        }
+        
+        set_cached_stock(symbol_upper, result)
+        
+        return jsonify(result)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
+history_cache = {}
+history_cache_lock = threading.Lock()
+
+def get_cached_history(symbol, period):
+    with history_cache_lock:
+        key = f"{symbol}_{period}"
+        if key in history_cache:
+            data, timestamp = history_cache[key]
+            if (datetime.now() - timestamp).total_seconds() < STOCK_CACHE_TTL:
+                return data
+    return None
+
+def set_cached_history(symbol, period, data):
+    with history_cache_lock:
+        key = f"{symbol}_{period}"
+        history_cache[key] = (data, datetime.now())
+
+
 @app.route('/stock/history/<symbol>', methods=['GET'])
 def history(symbol):
     try:
+        symbol_upper = symbol.upper()
         period = request.args.get('period', '3mo')
-        ticker = yf.Ticker(symbol.upper())
+        
+        cached = get_cached_history(symbol_upper, period)
+        if cached:
+            return jsonify(cached)
+        
+        ticker = yf.Ticker(symbol_upper)
         
         valid_periods = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max']
         if period not in valid_periods:
@@ -282,7 +378,7 @@ def history(symbol):
         data = []
         for idx, row in hist.iterrows():
             data.append({
-                "date": idx.isoformat(),
+                "date": str(idx),
                 "open": float(row['Open']),
                 "high": float(row['High']),
                 "low": float(row['Low']),
@@ -290,11 +386,15 @@ def history(symbol):
                 "volume": int(row['Volume'])
             })
         
-        return jsonify({
-            "symbol": symbol.upper(),
+        result = {
+            "symbol": symbol_upper,
             "period": period,
             "data": data
-        })
+        }
+        
+        set_cached_history(symbol_upper, period, result)
+        
+        return jsonify(result)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -365,21 +465,28 @@ def compare():
         if len(symbols) > 4:
             return jsonify({"error": "Maximum 4 symbols allowed"}), 400
         
-        comparison = []
+        def fetch_stock(symbol):
+            try:
+                ticker = yf.Ticker(symbol.upper())
+                info = ticker.info
+                return {
+                    "symbol": symbol.upper(),
+                    "name": info.get('longName', 'Unknown'),
+                    "price": info.get('currentPrice', 0),
+                    "change": info.get('regularMarketChange', 0),
+                    "changePercent": info.get('regularMarketChangePercent', 0),
+                    "volume": info.get('volume', 0),
+                    "marketCap": info.get('marketCap', 0)
+                }
+            except:
+                return None
         
-        for symbol in symbols:
-            ticker = yf.Ticker(symbol.upper())
-            info = ticker.info
-            
-            comparison.append({
-                "symbol": symbol.upper(),
-                "name": info.get('longName', 'Unknown'),
-                "price": info.get('currentPrice', 0),
-                "change": info.get('regularMarketChange', 0),
-                "changePercent": info.get('regularMarketChangePercent', 0),
-                "volume": info.get('volume', 0),
-                "marketCap": info.get('marketCap', 0)
-            })
+        comparison = []
+        futures = {executor.submit(fetch_stock, s): s for s in symbols}
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                comparison.append(result)
         
         return jsonify({
             "comparison": comparison
@@ -394,21 +501,14 @@ def search():
     try:
         query = request.args.get('q', '').upper()
         
-        # Popular stocks database
-        popular_stocks = {
-            "AAPL": "Apple Inc.",
-            "GOOGL": "Alphabet Inc.",
-            "GOOG": "Alphabet Inc.",
-            "MSFT": "Microsoft Corporation",
-            "AMZN": "Amazon.com Inc.",
-            "TSLA": "Tesla Inc.",
-            "META": "Meta Platforms Inc.",
-            "NVDA": "NVIDIA Corporation",
-            "NFLX": "Netflix Inc.",
-            "AMD": "Advanced Micro Devices",
-            "INTC": "Intel Corporation",
-            "DIS": "The Walt Disney Company",
-            "PYPL": "PayPal Holdings Inc.",
+        popular_stocks = get_popular_stocks()
+        
+        if query:
+            results = {k: v for k, v in popular_stocks.items() if query in k or query in v}
+        else:
+            results = popular_stocks
+        
+        return jsonify(results)
             "ADBE": "Adobe Inc.",
             "CRM": "Salesforce Inc.",
             "V": "Visa Inc.",
