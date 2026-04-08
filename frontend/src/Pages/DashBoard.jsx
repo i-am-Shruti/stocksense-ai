@@ -35,6 +35,7 @@ const DashBoard = () => {
     const [searchSuggestions, setSearchSuggestions] = useState({});
     const [showSearch, setShowSearch] = useState(false);
     const [trainingModal, setTrainingModal] = useState(false);
+    const [activeBtn, setActiveBtn] = useState(null);
 
     useEffect(() => {
         fetchSavedStocks();
@@ -404,24 +405,32 @@ const DashBoard = () => {
                                     type="submit" 
                                     style={{
                                         ...styles.searchBtn,
-                                        transform: 'scale(0.98)',
-                                        boxShadow: '0 2px 8px rgba(0,212,255,0.3)'
+                                        transform: activeBtn === 'search' ? 'scale(0.95)' : 'scale(0.98)',
+                                        boxShadow: activeBtn === 'search' ? 'inset 0 2px 4px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,212,255,0.3)',
+                                        backgroundColor: activeBtn === 'search' ? '#00a0cc' : '#00d4ff'
                                     }}
                                     disabled={loading}
+                                    onMouseDown={() => setActiveBtn('search')}
+                                    onMouseUp={() => setActiveBtn(null)}
+                                    onMouseLeave={() => setActiveBtn(null)}
                                 >
-                                    {loading ? '⏳' : '🔍'}
+                                    {loading ? <span style={styles.btnSpinner}></span> : '🔍'}
                                 </button>
                                 <button 
                                     type="button" 
                                     onClick={handlePredict} 
                                     style={{
                                         ...styles.predictBtn,
-                                        transform: 'scale(0.98)',
-                                        boxShadow: '0 2px 8px rgba(0,255,136,0.3)'
+                                        transform: activeBtn === 'predict' ? 'scale(0.95)' : 'scale(0.98)',
+                                        boxShadow: activeBtn === 'predict' ? 'inset 0 2px 4px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,255,136,0.3)',
+                                        backgroundColor: activeBtn === 'predict' ? '#00cc6a' : '#00ff88'
                                     }}
                                     disabled={loading}
+                                    onMouseDown={() => setActiveBtn('predict')}
+                                    onMouseUp={() => setActiveBtn(null)}
+                                    onMouseLeave={() => setActiveBtn(null)}
                                 >
-                                    🤖 Predict
+                                    {loading ? <><span style={styles.btnSpinner}></span> Predict</> : '🤖 Predict'}
                                 </button>
                             </form>
                         </div>
@@ -436,14 +445,16 @@ const DashBoard = () => {
                                         style={{
                                             ...styles.quickBtn,
                                             backgroundColor: stockData?.symbol === stock ? '#00d4ff' : '#1a1a2e',
-                                            transform: 'scale(1)',
-                                            transition: 'all 0.2s'
+                                            transform: activeBtn === stock ? 'scale(0.95)' : 'scale(1)',
+                                            boxShadow: activeBtn === stock ? 'inset 0 2px 4px rgba(0,0,0,0.3)' : '0 0 0',
+                                            transition: 'all 0.15s'
                                         }}
                                         disabled={loading}
-                                        onMouseDown={(e) => e.target.style.transform = 'scale(0.95)'}
-                                        onMouseUp={(e) => e.target.style.transform = 'scale(1)'}
+                                        onMouseDown={() => setActiveBtn(stock)}
+                                        onMouseUp={() => setActiveBtn(null)}
+                                        onMouseLeave={() => setActiveBtn(null)}
                                     >
-                                        {stock}
+                                        {loading && stockData?.symbol === stock ? <span style={styles.btnSpinnerSmall}></span> : stock}
                                     </button>
                                 ))}
                             </div>
@@ -744,6 +755,8 @@ const styles = {
     loadingBox: { backgroundColor: '#1a1a2e', padding: '40px 60px', borderRadius: '16px', textAlign: 'center', border: '2px solid #00d4ff' },
     spinner: { width: '50px', height: '50px', border: '4px solid #333', borderTop: '4px solid #00d4ff', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 20px' },
     loadingText: { color: '#00d4ff', fontSize: '18px', fontWeight: 'bold' },
+    btnSpinner: { display: 'inline-block', width: '16px', height: '16px', border: '2px solid #333', borderTop: '2px solid #000', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginRight: '8px' },
+    btnSpinnerSmall: { display: 'inline-block', width: '14px', height: '14px', border: '2px solid #333', borderTop: '2px solid #00d4ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 40px', backgroundColor: '#1a1a2e', borderBottom: '1px solid #00d4ff33' },
     title: { color: '#00d4ff', margin: 0, fontSize: '24px' },
     headerActions: { display: 'flex', alignItems: 'center', gap: '20px' },
