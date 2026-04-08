@@ -16,16 +16,25 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+// @Controller + @ResponseBody combined
+// @Controller    = this class handles HTTP requests
+// @ResponseBody  = return value → automatically converted to JSON
+
 @RequestMapping("/api/auth")
+// ALL endpoints in this class start with /api/auth  like (/api/auth/register)
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {
     private final AuthService authService;
     private final JwtUtils jwtUtils;
 
+    // POST /api/auth/register
     @PostMapping("/register")
+    // handles: POST http://localhost:8085/api/auth/register
     public ResponseEntity<AuthResponseDTO> register(
-        @RequestBody @Valid RegisterRequestDTO request){
+        @RequestBody // @RequestBody = read JSON from request body → convert to DTO
+        @Valid       // trigger validation (@NotBlank, @Email etc)
+        RegisterRequestDTO request){
         log.info("Register request received for: {}", request.getEmail());
         
         if (request.getOtp() != null && request.getVerified() != null && request.getVerified()) {
@@ -40,7 +49,10 @@ public class AuthController {
         
         AuthResponseDTO response  = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        // HttpStatus.CREATED = HTTP 201
+        // means "resource was successfully CREATED"
     }
+    // POST /api/auth/login
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid LoginRequestDTO request){

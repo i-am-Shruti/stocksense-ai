@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { stockAPI, mlAPI } from '../services/api';
+import { authAPI, stockAPI, mlAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
@@ -36,6 +36,10 @@ const DashBoard = () => {
     const [showSearch, setShowSearch] = useState(false);
     const [trainingModal, setTrainingModal] = useState(false);
     const [activeBtn, setActiveBtn] = useState(null);
+    const [showProfile, setShowProfile] = useState(false);
+    const [editName, setEditName] = useState(user?.name || '');
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
 
     useEffect(() => {
         fetchSavedStocks();
@@ -291,6 +295,31 @@ const DashBoard = () => {
         toast.success('Logged out successfully!');
     };
 
+    const handleUpdateProfile = async () => {
+        try {
+            const response = await authAPI.updateProfile({
+                name: editName,
+                currentPassword: currentPassword || null,
+                newPassword: newPassword || null
+            });
+            const { token, ...userData } = response.data;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+            setShowProfile(false);
+            setCurrentPassword('');
+            setNewPassword('');
+            toast.success('Profile updated!');
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Update failed');
+        }
+    };
+
+    const handleProfileClick = () => {
+        setEditName(user?.name || '');
+        setShowProfile(true);
+    };
+
     const formatNumber = (num) => {
         if (!num) return 'N/A';
         if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
@@ -363,10 +392,56 @@ const DashBoard = () => {
                     >
                         {compareMode ? '🏠 Home' : '⚖️ Compare'}
                     </button>
-                    <span style={styles.welcome}>Welcome, {user?.name || 'User'}</span>
+                    <button onClick={handleProfileClick} style={styles.profileBtn} title="Edit Profile">
+                        👤 {user?.name || 'User'}
+                    </button>
                     <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
                 </div>
             </header>
+
+            {showProfile && (
+                <div style={styles.profileModalOverlay} onClick={() => setShowProfile(false)}>
+                    <div style={styles.profileModal} onClick={e => e.stopPropagation()}>
+                        <h2 style={styles.profileTitle}>Edit Profile</h2>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Name</label>
+                            <input
+                                value={editName}
+                                onChange={e => setEditName(e.target.value)}
+                                style={styles.input}
+                            />
+                        </div>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Email (cannot change)</label>
+                            <input value={user?.email} disabled style={{...styles.input, opacity: 0.5}} />
+                        </div>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Current Password (to change password)</label>
+                            <input
+                                type="password"
+                                value={currentPassword}
+                                onChange={e => setCurrentPassword(e.target.value)}
+                                style={styles.input}
+                                placeholder="Enter current password"
+                            />
+                        </div>
+                        <div style={styles.field}>
+                            <label style={styles.label}>New Password</label>
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                style={styles.input}
+                                placeholder="Enter new password"
+                            />
+                        </div>
+                        <div style={styles.profileActions}>
+                            <button onClick={handleUpdateProfile} style={styles.saveBtn}>Save Changes</button>
+                            <button onClick={() => setShowProfile(false)} style={styles.cancelBtn}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <main style={styles.main}>
                 {!compareMode ? (
@@ -889,7 +964,13 @@ const styles = {
     trainingText: { color: '#fff', fontSize: '16px', lineHeight: '1.6', marginBottom: '10px' },
     trainingSubtext: { color: '#aaa', fontSize: '14px', marginBottom: '25px' },
     trainingCloseBtn: { padding: '12px 30px', backgroundColor: '#ffa502', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' },
-    logoutBtn: { padding: '10px 20px', backgroundColor: '#ff4757', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(255,71,87,0.3)' }
+    logoutBtn: { padding: '10px 20px', backgroundColor: '#ff4757', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(255,71,87,0.3)' },
+    profileBtn: { padding: '8px 16px', backgroundColor: '#1a1a2e', color: '#00d4ff', border: '1px solid #00d4ff', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' },
+    profileModalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 },
+    profileModal: { backgroundColor: '#1a1a2e', padding: '30px', borderRadius: '16px', border: '2px solid #00d4ff', width: '400px', maxWidth: '90%' },
+    profileTitle: { color: '#00d4ff', fontSize: '24px', marginBottom: '20px', textAlign: 'center' },
+    profileActions: { display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px' },
+    cancelBtn: { padding: '12px 24px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
 };
 
 export default DashBoard;

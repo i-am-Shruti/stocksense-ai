@@ -4,6 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Login from './Pages/Login';
 import Register from './Pages/Register';
+import ForgotPassword from './Pages/ForgotPassword';
 import DashBoard from './Pages/DashBoard';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -14,6 +15,7 @@ function App() {
                 <Routes>
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    <Route path="/forgot-password" element={<ForgotPassword />} />
                     <Route
                         path="/dashboard"
                         element={

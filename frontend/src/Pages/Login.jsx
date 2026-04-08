@@ -78,6 +78,12 @@ const Login = () => {
                         Register here
                     </Link>
                 </p>
+                <p style={styles.linkText}>
+                    <Link to="/forgot-password"
+                          style={styles.link}>
+                        Forgot Password?
+                    </Link>
+                </p>
             </div>
         </div>
     );
