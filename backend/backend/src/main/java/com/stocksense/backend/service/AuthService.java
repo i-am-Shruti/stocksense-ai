@@ -224,3 +224,5 @@ public class AuthService {
         return otpService.validateOtp(email, otp);
     }
 
+}
+
