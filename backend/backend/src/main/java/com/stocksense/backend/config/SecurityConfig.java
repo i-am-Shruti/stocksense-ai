@@ -78,7 +78,7 @@ addFilterBefore(jwtFilter, ...)
 → then Spring's default auth check
          */
         http.
-                cors(cors-> cors.configurationSource(corsConfigurationSource()))
+                cors(cors-> cors.configurationSource(this.corsConfigurationSource))
                 .csrf(csrf-> csrf.disable())
                 .sessionManagement(session-> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex->ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
