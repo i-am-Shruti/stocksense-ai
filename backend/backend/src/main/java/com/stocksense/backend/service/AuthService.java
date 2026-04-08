@@ -118,5 +118,109 @@ public class AuthService {
                     );
         }
 
+    public String sendForgotPasswordOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email not registered"));
+        
+        otpService.generateOtp(email);
+        log.info("Forgot password OTP sent to: {}", email);
+        return "OTP sent to your email";
+    }
+
+    public String resetPassword(String email, String otp, String newPassword) {
+        if (!otpService.validateOtp(email, otp)) {
+            throw new RuntimeException("Invalid or expired OTP");
+        }
+        
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        log.info("Password reset for: {}", email);
+        return "Password reset successful";
+    }
+
+    public String sendRegistrationOtp(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException("Email already registered");
+        }
+        
+        otpService.generateOtp(email);
+        log.info("Registration OTP sent to: {}", email);
+        return "OTP sent to your email";
+    }
+
+    public AuthResponseDTO verifyAndRegister(String email, String otp, String name, String password) {
+        if (!otpService.validateOtp(email, otp)) {
+            throw new RuntimeException("Invalid or expired OTP");
+        }
+        
+        if (userRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException("Email already registered");
+        }
+        
+        User user = new User();
+        user.setName(name);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setRole("USER");
+        user.setIsActive(true);
+        
+        User savedUser = userRepository.save(user);
+        log.info("User registered after OTP verification: {}", email);
+        
+        String token = jwtUtils.generateToken(savedUser.getEmail());
+        return new AuthResponseDTO(
+                token,
+                savedUser.getName(),
+                savedUser.getEmail(),
+                savedUser.getRole(),
+                "Registration successful!"
+        );
+    }
+
+    public AuthResponseDTO updateProfile(String email, String name, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        if (name != null && !name.isEmpty()) {
+            user.setName(name);
+        }
+        
+        if (newPassword != null && !newPassword.isEmpty()) {
+            if (currentPassword == null || currentPassword.isEmpty()) {
+                throw new RuntimeException("Current password required to change password");
+            }
+            
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, currentPassword)
+            );
+            
+            user.setPassword(passwordEncoder.encode(newPassword));
+        }
+        
+        User updatedUser = userRepository.save(user);
+        log.info("Profile updated for: {}", email);
+        
+        String token = jwtUtils.generateToken(updatedUser.getEmail());
+        return new AuthResponseDTO(
+                token,
+                updatedUser.getName(),
+                updatedUser.getEmail(),
+                updatedUser.getRole(),
+                "Profile updated!"
+        );
+    }
+
+    private OtpService otpService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public void setOtpService(OtpService otpService) {
+        this.otpService = otpService;
+    }
+
+    public boolean validateOtp(String email, String otp) {
+        return otpService.validateOtp(email, otp);
     }
 
