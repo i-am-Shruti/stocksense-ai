@@ -42,6 +42,7 @@ const Login = () => {
                             placeholder="shruti@gmail.com"
                             style={styles.input}
                             required
+                            autoComplete="email"
                         />
                     </div>
                     <div style={styles.field}>
@@ -53,9 +54,10 @@ const Login = () => {
                             value={password}
                             onChange={(e) =>
                                 setPassword(e.target.value)}
-                            placeholder="••••••••"
+                            placeholder="••••••••••"
                             style={styles.input}
                             required
+                            autoComplete="current-password"
                         />
                     </div>
                     <button
