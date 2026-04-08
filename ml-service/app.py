@@ -509,29 +509,6 @@ def search():
             results = popular_stocks
         
         return jsonify(results)
-            "ADBE": "Adobe Inc.",
-            "CRM": "Salesforce Inc.",
-            "V": "Visa Inc.",
-            "JPM": "JPMorgan Chase & Co.",
-            "JNJ": "Johnson & Johnson",
-            "WMT": "Walmart Inc.",
-            "PG": "Procter & Gamble Co.",
-            "KO": "The Coca-Cola Company",
-            "PEP": "PepsiCo Inc.",
-            "MRK": "Merck & Co. Inc.",
-            "ABBV": "AbbVie Inc.",
-            "T": "AT&T Inc.",
-            "VZ": "Verizon Communications",
-            "XOM": "Exxon Mobil Corporation",
-            "CVX": "Chevron Corporation"
-        }
-        
-        if query:
-            results = {k: v for k, v in popular_stocks.items() if query in k or query in v}
-        else:
-            results = popular_stocks
-        
-        return jsonify(results)
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
