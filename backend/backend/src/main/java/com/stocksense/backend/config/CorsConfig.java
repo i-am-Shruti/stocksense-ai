@@ -23,7 +23,8 @@ public class CorsConfig implements WebMvcConfigurer {
                         "http://localhost:3000",
                         "http://127.0.0.1:5173",
                         "http://127.0.0.1:5174",
-                        "http://127.0.0.1:3000"
+                        "http://127.0.0.1:3000",
+                        "https://stocksense-ai-frontend.vercel.app"
                 )
                 .allowedMethods(
                         "GET", "POST", "PUT", "DELETE", "PATCH",
@@ -52,7 +53,8 @@ public class CorsConfig implements WebMvcConfigurer {
                 "http://localhost:3000",
                 "http://127.0.0.1:5173",
                 "http://127.0.0.1:5174",
-                "http://127.0.0.1:3000"
+                "http://127.0.0.1:3000",
+                "https://stocksense-ai-frontend.vercel.app"
         ));
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"
