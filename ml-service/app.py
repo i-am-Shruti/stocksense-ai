@@ -29,9 +29,9 @@ REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 try:
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     redis_client.ping()
-    print(f"Connected to Redis: {REDIS_URL}")
+    print(f"✅ Connected to Redis: {REDIS_URL}")
 except Exception as e:
-    print(f"Redis connection failed: {e}")
+    print(f"❌ Redis connection failed: {e}")
     redis_client = None
 
 loaded_models = {}
@@ -41,57 +41,67 @@ training_status = {}
 executor = ThreadPoolExecutor(max_workers=4)
 
 STOCK_CACHE_TTL = 60
+PREDICTION_CACHE_TTL = 300
 
 def get_cached_stock(symbol):
     if redis_client:
         try:
             cached = redis_client.get(f"stock:{symbol}")
             if cached:
+                print(f"📦 Redis HIT: stock:{symbol}")
                 return json.loads(cached)
+            print(f"📭 Redis MISS: stock:{symbol}")
         except Exception as e:
-            print(f"Redis get error: {e}")
+            print(f"❌ Redis get error: {e}")
     return None
 
 def set_cached_stock(symbol, data):
     if redis_client:
         try:
             redis_client.setex(f"stock:{symbol}", STOCK_CACHE_TTL, json.dumps(data))
+            print(f"💾 Redis CACHED: stock:{symbol} (TTL: {STOCK_CACHE_TTL}s)")
         except Exception as e:
-            print(f"Redis set error: {e}")
+            print(f"❌ Redis set error: {e}")
 
 def get_cached_history(symbol, period):
     if redis_client:
         try:
             cached = redis_client.get(f"history:{symbol}:{period}")
             if cached:
+                print(f"📦 Redis HIT: history:{symbol}:{period}")
                 return json.loads(cached)
+            print(f"📭 Redis MISS: history:{symbol}:{period}")
         except Exception as e:
-            print(f"Redis get error: {e}")
+            print(f"❌ Redis get error: {e}")
     return None
 
 def set_cached_history(symbol, period, data):
     if redis_client:
         try:
             redis_client.setex(f"history:{symbol}:{period}", STOCK_CACHE_TTL, json.dumps(data))
+            print(f"💾 Redis CACHED: history:{symbol}:{period} (TTL: {STOCK_CACHE_TTL}s)")
         except Exception as e:
-            print(f"Redis set error: {e}")
+            print(f"❌ Redis set error: {e}")
 
 def get_cached_prediction(symbol):
     if redis_client:
         try:
             cached = redis_client.get(f"prediction:{symbol}")
             if cached:
+                print(f"📦 Redis HIT: prediction:{symbol}")
                 return json.loads(cached)
+            print(f"📭 Redis MISS: prediction:{symbol}")
         except Exception as e:
-            print(f"Redis get error: {e}")
+            print(f"❌ Redis get error: {e}")
     return None
 
 def set_cached_prediction(symbol, data):
     if redis_client:
         try:
-            redis_client.setex(f"prediction:{symbol}", STOCK_CACHE_TTL * 5, json.dumps(data))
+            redis_client.setex(f"prediction:{symbol}", PREDICTION_CACHE_TTL, json.dumps(data))
+            print(f"💾 Redis CACHED: prediction:{symbol} (TTL: {PREDICTION_CACHE_TTL}s)")
         except Exception as e:
-            print(f"Redis set error: {e}")
+            print(f"❌ Redis set error: {e}")
 
 def get_model_and_scaler(symbol):
     if symbol not in loaded_models:
@@ -305,24 +315,43 @@ def predict():
         
         print(f"Prediction for: {symbol}")
 
-        # Try to get ML model
+        # Check if model exists
         model, scaler = get_model_and_scaler(symbol)
+        is_training = False
         
         if model is None and auto_train:
-            # Auto-train the model
-            print(f"Auto-training model for {symbol}...")
-            try:
-                from model.train_model import train_for_symbol
-                train_for_symbol(symbol)
-                model, scaler = get_model_and_scaler(symbol)
-            except Exception as e:
-                print(f"Auto-train failed: {str(e)}")
+            # Check if already training
+            if symbol in training_status and training_status[symbol].get('status') == 'training':
+                is_training = True
+                print(f"⏳ Model training in progress for {symbol}")
+            else:
+                # Start training in background
+                print(f"🚀 Starting background training for {symbol}...")
+                training_status[symbol] = {"status": "training", "start_time": datetime.now().isoformat()}
+                
+                def train_async():
+                    try:
+                        from model.train_model import train_for_symbol
+                        train_for_symbol(symbol)
+                        loaded_models.pop(symbol, None)
+                        loaded_scalers.pop(symbol, None)
+                        training_status[symbol] = {"status": "completed", "start_time": training_status[symbol].get('start_time')}
+                        print(f"✅ Training completed for {symbol}")
+                        # Clear prediction cache so next request gets fresh prediction
+                        if redis_client:
+                            redis_client.delete(f"prediction:{symbol}")
+                    except Exception as e:
+                        training_status[symbol] = {"status": "failed", "error": str(e)}
+                        print(f"❌ Training failed for {symbol}: {e}")
+                
+                executor.submit(train_async)
+                is_training = True
 
         processor = DataProcessor()
         
         # Try ML prediction first
         ml_prediction = None
-        prediction_method = "simple"
+        prediction_method = "moving_average"
         
         if model is not None and scaler is not None:
             try:
@@ -336,7 +365,7 @@ def predict():
             except Exception as e:
                 print(f"ML prediction failed: {str(e)}")
 
-        # Fallback to simple prediction if ML fails
+        # Fallback to simple prediction if ML fails or is training
         if ml_prediction is None:
             processor = DataProcessor()
             df = processor.fetch_stock_data(symbol, period="3mo")
@@ -351,7 +380,9 @@ def predict():
             "symbol": symbol,
             "predictedPrice": ml_prediction,
             "method": prediction_method,
-            "currency": "USD"
+            "currency": "USD",
+            "training": is_training,
+            "trainingMessage": "AI model training in progress. Showing moving average prediction." if is_training else None
         }
         set_cached_prediction(symbol, result)
         return jsonify(result)

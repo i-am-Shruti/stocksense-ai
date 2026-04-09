@@ -40,6 +40,40 @@ const DashBoard = () => {
     const [editName, setEditName] = useState(user?.name || '');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [trainingSymbols, setTrainingSymbols] = useState({});
+
+    // Poll for training status when prediction is in training
+    useEffect(() => {
+        if (prediction?.isTraining && stockData?.symbol) {
+            const symbol = stockData.symbol;
+            const interval = setInterval(async () => {
+                try {
+                    const statusRes = await mlAPI.getTrainStatus(symbol);
+                    if (statusRes.data.status === 'completed') {
+                        // Training done! Get fresh prediction
+                        toast.info(`🎉 AI model trained for ${symbol}! Getting prediction...`);
+                        const predRes = await mlAPI.getPrediction(symbol, false);
+                        setPrediction({
+                            price: predRes.data.predictedPrice,
+                            method: predRes.data.method,
+                            isTraining: false
+                        });
+                        toast.success(`🎯 AI Prediction ready: $${predRes.data.predictedPrice}`);
+                        setTrainingSymbols(prev => ({ ...prev, [symbol]: 'completed' }));
+                        clearInterval(interval);
+                    } else if (statusRes.data.status === 'failed') {
+                        toast.error(`Training failed for ${symbol}`);
+                        setTrainingSymbols(prev => ({ ...prev, [symbol]: 'failed' }));
+                        clearInterval(interval);
+                    }
+                } catch (e) {
+                    console.error('Training check failed:', e);
+                }
+            }, 10000); // Check every 10 seconds
+            
+            return () => clearInterval(interval);
+        }
+    }, [prediction?.isTraining, stockData?.symbol]);
 
     useEffect(() => {
         fetchSavedStocks();
@@ -203,33 +237,31 @@ const DashBoard = () => {
         setLoadingMessage('Checking for model...');
         
         try {
-            const statusRes = await mlAPI.getTrainStatus(symbol);
-            if (statusRes.data.status === 'training') {
-                setTrainingModal(true);
-                setLoading(false);
-                return;
-            }
-            
             setLoadingMessage('Generating prediction...');
             const response = await mlAPI.getPrediction(symbol, true);
             
+            if (response.data.training) {
+                toast.info(response.data.trainingMessage || 'AI model training in progress. Using moving average prediction.');
+            }
+            
             if (response.data.method === 'moving_average') {
                 setLoadingMessage('Using simple prediction method');
-                await new Promise(r => setTimeout(r, 1000));
             }
             
             setPrediction({
                 price: response.data.predictedPrice,
-                method: response.data.method
+                method: response.data.method,
+                isTraining: response.data.training
             });
-            toast.success(`AI Prediction: $${response.data.predictedPrice}`);
-        } catch (error) {
-            if (error.response?.data?.message?.includes('training')) {
-                setTrainingModal(true);
+            
+            if (response.data.training) {
+                toast.info(`Showing moving average: $${response.data.predictedPrice}. AI prediction coming soon!`);
             } else {
-                toast.error('Prediction failed!');
-                setPrediction(null);
+                toast.success(`AI Prediction: $${response.data.predictedPrice}`);
             }
+        } catch (error) {
+            toast.error('Prediction failed!');
+            setPrediction(null);
         } finally {
             setLoading(false);
             setLoadingMessage('');
@@ -577,7 +609,15 @@ const DashBoard = () => {
                                         <div style={styles.predictionBox}>
                                             <span>🤖 AI Prediction: </span>
                                             <span style={styles.predictionValue}>${prediction.price}</span>
-                                            <span style={styles.methodBadge}>{prediction.method === 'lstm' ? '🎯 LSTM Model' : '📊 Moving Avg'}</span>
+                                            <span style={prediction.isTraining ? styles.trainingBadge : styles.methodBadge}>
+                                                {prediction.isTraining ? '⏳ Training...' : prediction.method === 'lstm' ? '🎯 LSTM Model' : '📊 Moving Avg'}
+                                            </span>
+                                            {prediction.isTraining && (
+                                                <div style={styles.trainingMessage}>
+                                                    🔄 AI model is training for {stockData?.symbol}. Using moving average for now.<br/>
+                                                    📬 We'll notify you when AI prediction is ready!
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -875,9 +915,11 @@ const styles = {
     priceBox: { textAlign: 'center', padding: '15px', backgroundColor: '#0f0f2e', borderRadius: '8px', display: 'flex', flexDirection: 'column', gap: '5px' },
     statsRow: { display: 'flex', gap: '20px', justifyContent: 'center', marginBottom: '20px' },
     stat: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px', fontSize: '14px', color: '#aaa' },
-    predictionBox: { padding: '15px', backgroundColor: '#00ff8820', borderRadius: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center' },
+    predictionBox: { padding: '15px', backgroundColor: '#00ff8820', borderRadius: '12px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', flexDirection: 'column' },
     predictionValue: { color: '#00ff88', fontSize: '28px', fontWeight: 'bold' },
     methodBadge: { padding: '4px 8px', backgroundColor: '#00ff88', color: '#000', borderRadius: '4px', fontSize: '12px' },
+    trainingBadge: { padding: '4px 8px', backgroundColor: '#ffa502', color: '#000', borderRadius: '4px', fontSize: '12px' },
+    trainingMessage: { marginTop: '10px', padding: '10px', backgroundColor: '#ffa50220', borderRadius: '8px', fontSize: '12px', color: '#ffa502', textAlign: 'center' },
     actionButtons: { display: 'flex', gap: '15px', justifyContent: 'center' },
     saveBtn: { 
         padding: '12px 24px', 
