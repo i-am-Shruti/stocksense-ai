@@ -534,12 +534,13 @@ const DashBoard = () => {
                                     type="submit" 
                                     style={{
                                         ...styles.searchBtn,
-                                        transform: activeBtn === 'search' ? 'scale(0.95)' : 'scale(0.98)',
+                                        ...(loading ? styles.btnDisabled : {}),
+                                        transform: activeBtn === 'search' ? 'scale(0.95)' : (loading ? 'none' : 'scale(0.98)'),
                                         boxShadow: activeBtn === 'search' ? 'inset 0 2px 4px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,212,255,0.3)',
-                                        backgroundColor: activeBtn === 'search' ? '#00a0cc' : '#00d4ff'
+                                        backgroundColor: activeBtn === 'search' ? '#00a0cc' : (loading ? '#555' : '#00d4ff')
                                     }}
                                     disabled={loading}
-                                    onMouseDown={() => setActiveBtn('search')}
+                                    onMouseDown={() => !loading && setActiveBtn('search')}
                                     onMouseUp={() => setActiveBtn(null)}
                                     onMouseLeave={() => setActiveBtn(null)}
                                 >
@@ -550,12 +551,13 @@ const DashBoard = () => {
                                     onClick={handlePredict} 
                                     style={{
                                         ...styles.predictBtn,
-                                        transform: activeBtn === 'predict' ? 'scale(0.95)' : 'scale(0.98)',
+                                        ...(loading ? styles.btnDisabled : {}),
+                                        transform: activeBtn === 'predict' ? 'scale(0.95)' : (loading ? 'none' : 'scale(0.98)'),
                                         boxShadow: activeBtn === 'predict' ? 'inset 0 2px 4px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,255,136,0.3)',
-                                        backgroundColor: activeBtn === 'predict' ? '#00cc6a' : '#00ff88'
+                                        backgroundColor: activeBtn === 'predict' ? '#00cc6a' : (loading ? '#555' : '#00ff88')
                                     }}
                                     disabled={loading}
-                                    onMouseDown={() => setActiveBtn('predict')}
+                                    onMouseDown={() => !loading && setActiveBtn('predict')}
                                     onMouseUp={() => setActiveBtn(null)}
                                     onMouseLeave={() => setActiveBtn(null)}
                                 >
@@ -922,8 +924,39 @@ const styles = {
     searchInput: { padding: '14px 20px', borderRadius: '8px', border: '1px solid #333', backgroundColor: '#1a1a2e', color: '#fff', fontSize: '16px', width: '300px', outline: 'none', transition: 'border-color 0.2s' },
     suggestions: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px', zIndex: 100, maxHeight: '200px', overflow: 'auto' },
     suggestionItem: { padding: '10px 15px', cursor: 'pointer', borderBottom: '1px solid #333', transition: 'background 0.2s' },
-    searchBtn: { padding: '14px 24px', backgroundColor: '#00d4ff', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' },
-    predictBtn: { padding: '14px 24px', backgroundColor: '#00ff88', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' },
+    searchBtn: { 
+        padding: '14px 24px', 
+        backgroundColor: '#00d4ff', 
+        color: '#000', 
+        border: 'none', 
+        borderRadius: '8px', 
+        cursor: 'pointer', 
+        transition: 'all 0.15s',
+        boxShadow: '0 4px 12px rgba(0,212,255,0.3)',
+        '&:hover': { backgroundColor: '#00b8e6' },
+        '&:active': { transform: 'scale(0.95)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' },
+        '&:disabled': { backgroundColor: '#666', cursor: 'not-allowed', boxShadow: 'none', transform: 'none' }
+    },
+    predictBtn: { 
+        padding: '14px 24px', 
+        backgroundColor: '#00ff88', 
+        color: '#000', 
+        border: 'none', 
+        borderRadius: '8px', 
+        cursor: 'pointer', 
+        transition: 'all 0.15s',
+        boxShadow: '0 4px 12px rgba(0,255,136,0.3)',
+        '&:hover': { backgroundColor: '#00e673' },
+        '&:active': { transform: 'scale(0.95)', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' },
+        '&:disabled': { backgroundColor: '#666', cursor: 'not-allowed', boxShadow: 'none', transform: 'none' }
+    },
+    btnDisabled: { 
+        backgroundColor: '#555', 
+        color: '#888', 
+        cursor: 'not-allowed', 
+        boxShadow: 'none',
+        transform: 'none'
+    },
     quickSearch: { marginBottom: '30px', textAlign: 'center' },
     quickLabel: { color: '#aaa', marginRight: '15px' },
     quickButtons: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' },
