@@ -60,6 +60,7 @@ export const authAPI = {
     sendOtp: (email) => api.post('/auth/send-otp', { email }),
     verifyOtp: (data) => api.post('/auth/verify-otp', data),
     updateProfile: (data) => api.put('/auth/profile', data),
+    deleteAccount: () => api.delete('/auth/profile'),
 };
 
 export const stockAPI = {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { authAPI, stockAPI, mlAPI } from '../services/api';
 import { toast } from 'react-toastify';
@@ -16,6 +17,7 @@ const TIMEFRAMES = [
 
 const DashBoard = () => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
     const [searchSymbol, setSearchSymbol] = useState('');
     const [stockData, setStockData] = useState(null);
     const [prediction, setPrediction] = useState(null);
@@ -331,6 +333,16 @@ const DashBoard = () => {
         }
     };
 
+    const handleRemoveStock = async (id) => {
+        try {
+            await stockAPI.delete(id);
+            toast.success('Stock removed from portfolio');
+            fetchSavedStocks();
+        } catch (error) {
+            toast.error('Failed to remove stock');
+        }
+    };
+
     const handleLogout = () => {
         logout();
         toast.success('Logged out successfully!');
@@ -367,6 +379,23 @@ const DashBoard = () => {
     const handleProfileClick = () => {
         setEditName(user?.name || '');
         setShowProfile(true);
+    };
+
+    const handleDeleteAccount = async () => {
+        const confirm = window.confirm('Are you sure you want to delete your account? This action cannot be undone.');
+        if (!confirm) return;
+        
+        setLoading(true);
+        try {
+            await authAPI.deleteAccount();
+            logout();
+            toast.success('Account deleted successfully');
+            navigate('/login');
+        } catch (error) {
+            toast.error('Failed to delete account');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const formatNumber = (num) => {
@@ -518,6 +547,17 @@ const DashBoard = () => {
                             <div style={styles.profileActions}>
                                 <button type="submit" style={styles.saveBtn}>💾 Save Changes</button>
                                 <button type="button" onClick={() => setShowProfile(false)} style={styles.cancelBtn}>✕ Cancel</button>
+                            </div>
+                            <div style={styles.deleteSection}>
+                                <button 
+                                    type="button" 
+                                    onClick={handleDeleteAccount}
+                                    style={styles.deleteBtn}
+                                    disabled={loading}
+                                >
+                                    🗑️ Delete My Account
+                                </button>
+                                <span style={styles.deleteWarning}>This action cannot be undone</span>
                             </div>
                         </form>
                     </div>
@@ -853,9 +893,21 @@ const DashBoard = () => {
                                         <div 
                                             key={stock.id} 
                                             style={styles.savedStockCard}
-                                            onClick={() => handleQuickSearch(stock.symbol)}
                                         >
-                                            <h4 style={styles.savedSymbol}>{stock.symbol}</h4>
+                                            <div style={styles.savedStockHeader}>
+                                                <h4 
+                                                    style={styles.savedSymbol}
+                                                    onClick={() => handleQuickSearch(stock.symbol)}
+                                                >
+                                                    {stock.symbol}
+                                                </h4>
+                                                <button 
+                                                    style={styles.removeStockBtn}
+                                                    onClick={() => handleRemoveStock(stock.id)}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
                                             <p style={styles.savedName}>{stock.companyName || 'N/A'}</p>
                                             <p style={styles.savedPrice}>
                                                 ${stock.closePrice?.toFixed(2) || stock.currentPrice?.toFixed(2) || 'N/A'}
@@ -1093,7 +1145,10 @@ const styles = {
     savedSection: { marginTop: '40px' },
     subHeading: { color: '#fff', fontSize: '22px', marginBottom: '20px' },
     stocksGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '15px' },
-    savedStockCard: { backgroundColor: '#1a1a2e', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid #333', cursor: 'pointer', transition: 'all 0.2s' },
+    savedStockCard: { backgroundColor: '#1a1a2e', padding: '20px', borderRadius: '12px', textAlign: 'center', border: '1px solid #333', transition: 'all 0.2s' },
+    savedStockHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' },
+    savedSymbol: { color: '#00d4ff', fontSize: '18px', margin: 0, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } },
+    removeStockBtn: { background: 'none', border: 'none', color: '#666', fontSize: '16px', cursor: 'pointer', padding: '2px 6px', '&:hover': { color: '#ff4757' } },
     savedSymbol: { color: '#00d4ff', fontSize: '20px', margin: '0 0 5px 0' },
     savedName: { color: '#aaa', fontSize: '12px', margin: '0 0 10px 0' },
     savedPrice: { color: '#fff', fontSize: '18px', fontWeight: 'bold', margin: 0 },
@@ -1118,6 +1173,9 @@ const styles = {
     passwordSection: { backgroundColor: '#0f0f2e', padding: '20px', borderRadius: '12px', marginTop: '15px', border: '1px solid #333' },
     helperText: { fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' },
     cancelBtn: { padding: '12px 24px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', '&:hover': { backgroundColor: '#444' } },
+    deleteSection: { marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #333', textAlign: 'center' },
+    deleteBtn: { padding: '12px 24px', backgroundColor: '#ff4757', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' },
+    deleteWarning: { display: 'block', marginTop: '8px', fontSize: '12px', color: '#666' },
 };
 
 export default DashBoard;

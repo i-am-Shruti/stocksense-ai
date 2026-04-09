@@ -110,4 +110,14 @@ public class AuthController {
         );
         return ResponseEntity.ok(response);
     }
+
+    @DeleteMapping("/profile")
+    public ResponseEntity<String> deleteAccount(
+            @RequestHeader("Authorization") String authHeader){
+        String token = authHeader.replace("Bearer ", "");
+        String email = jwtUtils.getEmailFromToken(token);
+        
+        authService.deleteAccount(email);
+        return ResponseEntity.ok("Account deleted successfully");
+    }
 }

@@ -219,5 +219,14 @@ public class AuthService {
         return otpService.validateOtp(email, otp);
     }
 
+    @CacheEvict(value = {"userProfile", "userEmail"}, allEntries = true)
+    public void deleteAccount(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        userRepository.delete(user);
+        log.info("Account deleted for: {}", email);
+    }
+
 }
 

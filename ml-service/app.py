@@ -39,19 +39,25 @@ import boto3
 from botocore.exceptions import ClientError
 
 S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'stocksense-models')
-AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+AWS_REGION = os.environ.get('AWS_REGION', 'eu-north-1')
 
 s3_client = None
 try:
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
-        region_name=AWS_REGION
-    )
-    # Test connection
-    s3_client.head_bucket(Bucket=S3_BUCKET_NAME)
-    print(f"✅ Connected to S3 bucket: {S3_BUCKET_NAME}")
+    aws_access_key = os.environ.get('AWS_ACCESS_KEY_ID')
+    aws_secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    
+    if not aws_access_key or not aws_secret_key:
+        print("❌ AWS credentials not found in environment variables")
+    else:
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=AWS_REGION
+        )
+        # Test connection
+        s3_client.head_bucket(Bucket=S3_BUCKET_NAME)
+        print(f"✅ Connected to S3 bucket: {S3_BUCKET_NAME}")
 except Exception as e:
     print(f"❌ S3 connection failed: {e}")
     s3_client = None
