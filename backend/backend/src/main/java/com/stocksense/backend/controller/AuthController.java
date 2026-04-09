@@ -63,9 +63,14 @@ public class AuthController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody ForgotPasswordRequestDTO request){
-        log.info("Forgot password request for: {}", request.getEmail());
-        String message = authService.sendForgotPasswordOtp(request.getEmail());
-        return ResponseEntity.ok(message);
+        try {
+            log.info("Forgot password request for: {}", request.getEmail());
+            String message = authService.sendForgotPasswordOtp(request.getEmail());
+            return ResponseEntity.ok(message);
+        } catch (Exception e) {
+            log.error("Forgot password error: {}", e.getMessage());
+            return ResponseEntity.ok("If the email is registered, an OTP has been sent");
+        }
     }
 
     @PostMapping("/reset-password")

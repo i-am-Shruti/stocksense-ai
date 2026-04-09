@@ -110,12 +110,14 @@ public class AuthService {
             log.info("Forgot password OTP sent to: {}", email);
         } catch (Exception e) {
             log.error("Failed to send OTP: {}", e.getMessage());
+            // Don't rethrow - we don't want to reveal if email exists or not
         }
     }
 
     public String sendForgotPasswordOtp(String email) {
         sendForgotPasswordOtpAsync(email);
-        return "OTP sent to your email";
+        // Always return success to prevent email enumeration
+        return "If the email is registered, an OTP has been sent";
     }
 
     @CacheEvict(value = "userProfile", key = "#email")
