@@ -517,10 +517,13 @@ def realtime(symbol):
         
         ticker = yf.Ticker(symbol_upper)
         info = ticker.info
-
+        
+        if not info or len(info) == 0:
+            return jsonify({"error": f"Stock not found: {symbol_upper}"}), 404
+        
         result = {
             "symbol": symbol_upper,
-            "companyName": info.get('longName', 'Unknown'),
+            "companyName": info.get('longName', info.get('shortName', 'Unknown')),
             "currentPrice": info.get('currentPrice', 0),
             "openPrice": info.get('open', 0),
             "highPrice": info.get('dayHigh', 0),
@@ -540,7 +543,13 @@ def realtime(symbol):
         return jsonify(result)
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        error_msg = str(e)
+        print(f"Error in realtime: {error_msg}")
+        
+        if "rate" in error_msg.lower() or "429" in error_msg:
+            return jsonify({"error": "Too many requests. Please wait a moment and try again."}), 429
+        
+        return jsonify({"error": f"Failed to fetch stock data: {error_msg}"}), 500
 
 
 @app.route('/stock/history/<symbol>', methods=['GET'])
