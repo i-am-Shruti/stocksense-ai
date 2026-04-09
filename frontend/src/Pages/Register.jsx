@@ -11,6 +11,8 @@ const Register = () => {
     const [otp, setOtp] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const { register } = useAuth();
@@ -215,32 +217,50 @@ const Register = () => {
                         </div>
                         <div style={styles.field}>
                             <label style={styles.label}>Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => {
-                                    setPassword(e.target.value);
-                                    setErrors({...errors, password: ''});
-                                }}
-                                placeholder="Min 6 characters"
-                                style={getInputStyle('password')}
-                                disabled={loading}
-                            />
+                            <div style={styles.passwordWrapper}>
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        setErrors({...errors, password: ''});
+                                    }}
+                                    placeholder="Min 6 characters"
+                                    style={getInputStyle('password')}
+                                    disabled={loading}
+                                />
+                                <button
+                                    type="button"
+                                    style={styles.showPasswordBtn}
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? '🙈' : '👁️'}
+                                </button>
+                            </div>
                             {errors.password && <span style={styles.errorText}>{errors.password}</span>}
                         </div>
                         <div style={styles.field}>
                             <label style={styles.label}>Confirm Password</label>
-                            <input
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => {
-                                    setConfirmPassword(e.target.value);
-                                    setErrors({...errors, confirmPassword: ''});
-                                }}
-                                placeholder="Confirm password"
-                                style={getInputStyle('confirmPassword')}
-                                disabled={loading}
-                            />
+                            <div style={styles.passwordWrapper}>
+                                <input
+                                    type={showConfirmPassword ? "text" : "password"}
+                                    value={confirmPassword}
+                                    onChange={(e) => {
+                                        setConfirmPassword(e.target.value);
+                                        setErrors({...errors, confirmPassword: ''});
+                                    }}
+                                    placeholder="Confirm password"
+                                    style={getInputStyle('confirmPassword')}
+                                    disabled={loading}
+                                />
+                                <button
+                                    type="button"
+                                    style={styles.showPasswordBtn}
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                    {showConfirmPassword ? '🙈' : '👁️'}
+                                </button>
+                            </div>
                             {errors.confirmPassword && <span style={styles.errorText}>{errors.confirmPassword}</span>}
                         </div>
                         <div style={styles.buttonRow}>
@@ -313,6 +333,20 @@ const styles = {
         fontWeight: 'normal'
     },
     field: { marginBottom: '20px' },
+    passwordWrapper: {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center'
+    },
+    showPasswordBtn: {
+        position: 'absolute',
+        right: '12px',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '16px',
+        padding: '4px'
+    },
     label: {
         color: '#aaaaaa',
         display: 'block',

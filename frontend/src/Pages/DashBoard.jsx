@@ -40,6 +40,8 @@ const DashBoard = () => {
     const [editName, setEditName] = useState(user?.name || '');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
     const [trainingSymbols, setTrainingSymbols] = useState({});
 
     // Poll for training status when prediction is in training
@@ -477,22 +479,40 @@ const DashBoard = () => {
                                     <span style={styles.labelIcon}>🔐</span> Change Password (Optional)
                                 </label>
                                 <div style={styles.field}>
-                                    <input
-                                        type="password"
-                                        value={currentPassword}
-                                        onChange={e => setCurrentPassword(e.target.value)}
-                                        style={styles.input}
-                                        placeholder="Enter current password"
-                                    />
+                                    <div style={styles.passwordWrapper}>
+                                        <input
+                                            type={showCurrentPassword ? "text" : "password"}
+                                            value={currentPassword}
+                                            onChange={e => setCurrentPassword(e.target.value)}
+                                            style={styles.input}
+                                            placeholder="Enter current password"
+                                        />
+                                        <button
+                                            type="button"
+                                            style={styles.showPasswordBtn}
+                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                        >
+                                            {showCurrentPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
                                 </div>
                                 <div style={styles.field}>
-                                    <input
-                                        type="password"
-                                        value={newPassword}
-                                        onChange={e => setNewPassword(e.target.value)}
-                                        style={styles.input}
-                                        placeholder="Enter new password"
-                                    />
+                                    <div style={styles.passwordWrapper}>
+                                        <input
+                                            type={showNewPassword ? "text" : "password"}
+                                            value={newPassword}
+                                            onChange={e => setNewPassword(e.target.value)}
+                                            style={styles.input}
+                                            placeholder="Enter new password"
+                                        />
+                                        <button
+                                            type="button"
+                                            style={styles.showPasswordBtn}
+                                            onClick={() => setShowNewPassword(!showNewPassword)}
+                                        >
+                                            {showNewPassword ? '🙈' : '👁️'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div style={styles.profileActions}>
@@ -926,6 +946,20 @@ const styles = {
     searchForm: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' },
     inputWrapper: { position: 'relative' },
     input: { width: '100%', padding: '14px 16px', borderRadius: '10px', border: '1px solid #333', backgroundColor: '#0f0f2e', color: '#fff', fontSize: '15px', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box', marginTop: '6px' },
+    passwordWrapper: {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center'
+    },
+    showPasswordBtn: {
+        position: 'absolute',
+        right: '12px',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '16px',
+        padding: '4px'
+    },
     label: { color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '8px', fontWeight: '500' },
     field: { marginBottom: '18px' },
     searchInput: { padding: '14px 20px', borderRadius: '8px', border: '1px solid #333', backgroundColor: '#1a1a2e', color: '#fff', fontSize: '16px', width: '300px', outline: 'none', transition: 'border-color 0.2s' },

@@ -6,6 +6,7 @@ import { toast } from 'react-toastify';
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [emailError, setEmailError] = useState('');
     const { login } = useAuth();
@@ -69,17 +70,26 @@ const Login = () => {
                         <label style={styles.label}>
                             Password
                         </label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) =>
-                                setPassword(e.target.value)}
-                            placeholder="••••••••••"
-                            style={styles.input}
-                            required
-                            autoComplete="current-password"
-                            disabled={loading}
-                        />
+                        <div style={styles.passwordWrapper}>
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) =>
+                                    setPassword(e.target.value)}
+                                placeholder="••••••••••"
+                                style={styles.input}
+                                required
+                                autoComplete="current-password"
+                                disabled={loading}
+                            />
+                            <button
+                                type="button"
+                                style={styles.showPasswordBtn}
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? '🙈' : '👁️'}
+                            </button>
+                        </div>
                     </div>
                     <button
                         type="submit"
@@ -146,6 +156,20 @@ const styles = {
         fontWeight: 'normal'
     },
     field: { marginBottom: '20px' },
+    passwordWrapper: {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center'
+    },
+    showPasswordBtn: {
+        position: 'absolute',
+        right: '12px',
+        background: 'none',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '16px',
+        padding: '4px'
+    },
     label: {
         color: '#aaaaaa',
         display: 'block',
