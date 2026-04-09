@@ -329,11 +329,17 @@ const DashBoard = () => {
 
     const handleUpdateProfile = async () => {
         try {
+            if (!editName.trim()) {
+                toast.error('Name cannot be empty');
+                return;
+            }
+            
             const response = await authAPI.updateProfile({
-                name: editName,
+                name: editName.trim(),
                 currentPassword: currentPassword || null,
                 newPassword: newPassword || null
             });
+            
             const { token, ...userData } = response.data;
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(userData));
@@ -341,9 +347,11 @@ const DashBoard = () => {
             setShowProfile(false);
             setCurrentPassword('');
             setNewPassword('');
-            toast.success('Profile updated!');
+            toast.success('Profile updated successfully!');
         } catch (error) {
-            toast.error(error.response?.data?.message || 'Update failed');
+            console.error('Profile update error:', error);
+            const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Update failed. Please check your current password.';
+            toast.error(errorMsg);
         }
     };
 
@@ -434,43 +442,57 @@ const DashBoard = () => {
             {showProfile && (
                 <div style={styles.profileModalOverlay} onClick={() => setShowProfile(false)}>
                     <div style={styles.profileModal} onClick={e => e.stopPropagation()}>
-                        <h2 style={styles.profileTitle}>Edit Profile</h2>
-                        <div style={styles.field}>
-                            <label style={styles.label}>Name</label>
-                            <input
-                                value={editName}
-                                onChange={e => setEditName(e.target.value)}
-                                style={styles.input}
-                            />
+                        <div style={styles.profileHeader}>
+                            <div style={styles.profileAvatar}>👤</div>
+                            <h2 style={styles.profileTitle}>Edit Profile</h2>
                         </div>
-                        <div style={styles.field}>
-                            <label style={styles.label}>Email (cannot change)</label>
-                            <input value={user?.email} disabled style={{...styles.input, opacity: 0.5}} />
-                        </div>
-                        <div style={styles.field}>
-                            <label style={styles.label}>Current Password (to change password)</label>
-                            <input
-                                type="password"
-                                value={currentPassword}
-                                onChange={e => setCurrentPassword(e.target.value)}
-                                style={styles.input}
-                                placeholder="Enter current password"
-                            />
-                        </div>
-                        <div style={styles.field}>
-                            <label style={styles.label}>New Password</label>
-                            <input
-                                type="password"
-                                value={newPassword}
-                                onChange={e => setNewPassword(e.target.value)}
-                                style={styles.input}
-                                placeholder="Enter new password"
-                            />
-                        </div>
-                        <div style={styles.profileActions}>
-                            <button onClick={handleUpdateProfile} style={styles.saveBtn}>Save Changes</button>
-                            <button onClick={() => setShowProfile(false)} style={styles.cancelBtn}>Cancel</button>
-                        </div>
+                        <form onSubmit={(e) => { e.preventDefault(); handleUpdateProfile(); }}>
+                            <div style={styles.field}>
+                                <label style={styles.label}>
+                                    <span style={styles.labelIcon}>👤</span> Full Name
+                                </label>
+                                <input
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
+                                    style={styles.input}
+                                    placeholder="Enter your name"
+                                />
+                            </div>
+                            <div style={styles.field}>
+                                <label style={styles.label}>
+                                    <span style={styles.labelIcon}>📧</span> Email Address
+                                </label>
+                                <input value={user?.email} disabled style={{...styles.input, opacity: 0.6, cursor: 'not-allowed'}} />
+                                <span style={styles.helperText}>Email cannot be changed</span>
+                            </div>
+                            <div style={styles.passwordSection}>
+                                <label style={styles.sectionLabel}>
+                                    <span style={styles.labelIcon}>🔐</span> Change Password (Optional)
+                                </label>
+                                <div style={styles.field}>
+                                    <input
+                                        type="password"
+                                        value={currentPassword}
+                                        onChange={e => setCurrentPassword(e.target.value)}
+                                        style={styles.input}
+                                        placeholder="Enter current password"
+                                    />
+                                </div>
+                                <div style={styles.field}>
+                                    <input
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={e => setNewPassword(e.target.value)}
+                                        style={styles.input}
+                                        placeholder="Enter new password"
+                                    />
+                                </div>
+                            </div>
+                            <div style={styles.profileActions}>
+                                <button type="submit" style={styles.saveBtn}>💾 Save Changes</button>
+                                <button type="button" onClick={() => setShowProfile(false)} style={styles.cancelBtn}>✕ Cancel</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
@@ -894,6 +916,9 @@ const styles = {
     heading: { color: '#fff', fontSize: '28px', marginBottom: '10px', textAlign: 'center' },
     searchForm: { display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' },
     inputWrapper: { position: 'relative' },
+    input: { width: '100%', padding: '14px 16px', borderRadius: '10px', border: '1px solid #333', backgroundColor: '#0f0f2e', color: '#fff', fontSize: '15px', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box', marginTop: '6px' },
+    label: { color: '#aaa', fontSize: '14px', display: 'block', marginBottom: '8px', fontWeight: '500' },
+    field: { marginBottom: '18px' },
     searchInput: { padding: '14px 20px', borderRadius: '8px', border: '1px solid #333', backgroundColor: '#1a1a2e', color: '#fff', fontSize: '16px', width: '300px', outline: 'none', transition: 'border-color 0.2s' },
     suggestions: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#1a1a2e', border: '1px solid #333', borderRadius: '8px', zIndex: 100, maxHeight: '200px', overflow: 'auto' },
     suggestionItem: { padding: '10px 15px', cursor: 'pointer', borderBottom: '1px solid #333', transition: 'background 0.2s' },
@@ -1008,11 +1033,17 @@ const styles = {
     trainingCloseBtn: { padding: '12px 30px', backgroundColor: '#ffa502', color: '#000', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' },
     logoutBtn: { padding: '10px 20px', backgroundColor: '#ff4757', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(255,71,87,0.3)' },
     profileBtn: { padding: '8px 16px', backgroundColor: '#1a1a2e', color: '#00d4ff', border: '1px solid #00d4ff', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s' },
-    profileModalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 },
-    profileModal: { backgroundColor: '#1a1a2e', padding: '30px', borderRadius: '16px', border: '2px solid #00d4ff', width: '400px', maxWidth: '90%' },
-    profileTitle: { color: '#00d4ff', fontSize: '24px', marginBottom: '20px', textAlign: 'center' },
-    profileActions: { display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '20px' },
-    cancelBtn: { padding: '12px 24px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' },
+    profileModalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, backdropFilter: 'blur(5px)' },
+    profileModal: { backgroundColor: '#1a1a2e', padding: '35px', borderRadius: '20px', border: '1px solid #00d4ff50', width: '420px', maxWidth: '90%', boxShadow: '0 0 40px rgba(0,212,255,0.2)' },
+    profileHeader: { textAlign: 'center', marginBottom: '25px' },
+    profileAvatar: { fontSize: '60px', marginBottom: '15px', display: 'block' },
+    profileTitle: { color: '#00d4ff', fontSize: '28px', marginBottom: '0', textAlign: 'center', fontWeight: 'bold' },
+    profileActions: { display: 'flex', gap: '15px', justifyContent: 'center', marginTop: '25px' },
+    labelIcon: { marginRight: '8px' },
+    sectionLabel: { color: '#aaa', fontSize: '14px', marginBottom: '12px', display: 'block', fontWeight: '500' },
+    passwordSection: { backgroundColor: '#0f0f2e', padding: '20px', borderRadius: '12px', marginTop: '15px', border: '1px solid #333' },
+    helperText: { fontSize: '12px', color: '#666', marginTop: '4px', display: 'block' },
+    cancelBtn: { padding: '12px 24px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.2s', '&:hover': { backgroundColor: '#444' } },
 };
 
 export default DashBoard;
