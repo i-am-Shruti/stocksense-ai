@@ -187,7 +187,14 @@ const DashBoard = () => {
             setShowSearch(false);
             toast.success(`Found ${symbol}`);
         } catch (error) {
-            toast.error('Stock not found! Check symbol and try again.');
+            const status = error.response?.status;
+            const errorMsg = error.response?.data?.error || error.message || 'Unknown error';
+            
+            if (status === 429) {
+                toast.error('Too many requests! Please wait 1-2 minutes and try again.');
+            } else {
+                toast.error(errorMsg.includes('rate') ? 'Too many requests. Please wait a moment...' : `Stock not found! ${errorMsg}`);
+            }
             setStockData(null);
         } finally {
             setLoading(false);

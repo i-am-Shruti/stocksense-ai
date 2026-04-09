@@ -2,17 +2,67 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
+import { authAPI } from '../services/api';
 
 const Register = () => {
+    const [step, setStep] = useState(1); // 1: email, 2: OTP, 3: password
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [otp, setOtp] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
     const { register } = useAuth();
     const navigate = useNavigate();
 
-    const validateForm = () => {
+    const validateEmail = () => {
+        const newErrors = {};
+        if (!email.trim()) {
+            newErrors.email = 'Email is required';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            newErrors.email = 'Please enter a valid email';
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSendOtp = async (e) => {
+        e?.preventDefault();
+        if (!validateEmail()) return;
+        
+        setLoading(true);
+        try {
+            await authAPI.sendOtp(email);
+            toast.success('OTP sent to your email!');
+            setStep(2);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to send OTP');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e) => {
+        e?.preventDefault();
+        if (!otp.trim()) {
+            toast.error('Please enter OTP');
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            await authAPI.verifyOtp({ email, otp });
+            toast.success('Email verified! Set your password.');
+            setStep(3);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Invalid OTP');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const validatePassword = () => {
         const newErrors = {};
         
         if (!name.trim()) {
@@ -21,32 +71,37 @@ const Register = () => {
             newErrors.name = 'Name must be at least 2 characters';
         }
         
-        if (!email.trim()) {
-            newErrors.email = 'Email is required';
-        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            newErrors.email = 'Please enter a valid email';
-        }
-        
         if (!password) {
             newErrors.password = 'Password is required';
         } else if (password.length < 6) {
             newErrors.password = 'Password must be at least 6 characters';
         }
         
+        if (password !== confirmPassword) {
+            newErrors.confirmPassword = 'Passwords do not match';
+        }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async (e) => {
+    const handleRegister = async (e) => {
         e.preventDefault();
         
-        if (!validateForm()) {
+        if (!validatePassword()) {
             return;
         }
         
         setLoading(true);
         try {
-            await register(name, email, password);
+            // Call register with OTP verification status
+            await authAPI.register({
+                email,
+                name,
+                password,
+                otp,
+                verified: true
+            });
             toast.success('Registration successful! Welcome to StockSense AI!');
             navigate('/dashboard');
         } catch (error) {
@@ -66,74 +121,157 @@ const Register = () => {
         <div style={styles.container}>
             <div style={styles.card}>
                 <h1 style={styles.title}>📈 StockSense AI</h1>
-                <h2 style={styles.subtitle}>Create Account</h2>
-                <form onSubmit={handleSubmit}>
-                    <div style={styles.field}>
-                        <label style={styles.label}>
-                            Full Name
-                        </label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => {
-                                setName(e.target.value);
-                                setErrors({...errors, name: ''});
+                <h2 style={styles.subtitle}>
+                    {step === 1 && 'Verify Email'}
+                    {step === 2 && 'Enter OTP'}
+                    {step === 3 && 'Set Password'}
+                </h2>
+                
+                {step === 1 && (
+                    <form onSubmit={handleSendOtp}>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => {
+                                    setEmail(e.target.value);
+                                    setErrors({...errors, email: ''});
+                                }}
+                                placeholder="shruti@gmail.com"
+                                style={getInputStyle('email')}
+                                disabled={loading}
+                            />
+                            {errors.email && <span style={styles.errorText}>{errors.email}</span>}
+                        </div>
+                        <button
+                            type="submit"
+                            style={{
+                                ...styles.button,
+                                opacity: loading ? 0.7 : 1,
+                                cursor: loading ? 'not-allowed' : 'pointer'
                             }}
-                            placeholder="Shruti Priya"
-                            style={getInputStyle('name')}
                             disabled={loading}
-                        />
-                        {errors.name && <span style={styles.errorText}>{errors.name}</span>}
-                    </div>
-                    <div style={styles.field}>
-                        <label style={styles.label}>Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => {
-                                setEmail(e.target.value);
-                                setErrors({...errors, email: ''});
-                            }}
-                            placeholder="shruti@gmail.com"
-                            style={getInputStyle('email')}
-                            disabled={loading}
-                        />
-                        {errors.email && <span style={styles.errorText}>{errors.email}</span>}
-                    </div>
-                    <div style={styles.field}>
-                        <label style={styles.label}>
-                            Password
-                        </label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => {
-                                setPassword(e.target.value);
-                                setErrors({...errors, password: ''});
-                            }}
-                            placeholder="Min 6 characters"
-                            style={getInputStyle('password')}
-                            disabled={loading}
-                        />
-                        {errors.password && <span style={styles.errorText}>{errors.password}</span>}
-                    </div>
-                    <button
-                        type="submit"
-                        style={{
-                            ...styles.button,
-                            opacity: loading ? 0.7 : 1,
-                            cursor: loading ? 'not-allowed' : 'pointer'
-                        }}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <span style={styles.spinnerContainer}>
-                                <span style={styles.spinner}></span>
-                                Creating Account...
-                            </span>
-                        ) : 'Create Account'}
-                    </button>
-                </form>
+                        >
+                            {loading ? 'Sending...' : 'Send OTP'}
+                        </button>
+                    </form>
+                )}
+
+                {step === 2 && (
+                    <form onSubmit={handleVerifyOtp}>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Enter OTP sent to {email}</label>
+                            <input
+                                type="text"
+                                value={otp}
+                                onChange={(e) => setOtp(e.target.value)}
+                                placeholder="Enter 6-digit OTP"
+                                style={styles.input}
+                                maxLength={6}
+                                disabled={loading}
+                            />
+                        </div>
+                        <div style={styles.buttonRow}>
+                            <button
+                                type="button"
+                                onClick={() => setStep(1)}
+                                style={styles.backBtn}
+                                disabled={loading}
+                            >
+                                Back
+                            </button>
+                            <button
+                                type="submit"
+                                style={{
+                                    ...styles.button,
+                                    opacity: loading ? 0.7 : 1,
+                                    cursor: loading ? 'not-allowed' : 'pointer'
+                                }}
+                                disabled={loading}
+                            >
+                                {loading ? 'Verifying...' : 'Verify OTP'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+
+                {step === 3 && (
+                    <form onSubmit={handleRegister}>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Full Name</label>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => {
+                                    setName(e.target.value);
+                                    setErrors({...errors, name: ''});
+                                }}
+                                placeholder="Shruti Priya"
+                                style={getInputStyle('name')}
+                                disabled={loading}
+                            />
+                            {errors.name && <span style={styles.errorText}>{errors.name}</span>}
+                        </div>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    setErrors({...errors, password: ''});
+                                }}
+                                placeholder="Min 6 characters"
+                                style={getInputStyle('password')}
+                                disabled={loading}
+                            />
+                            {errors.password && <span style={styles.errorText}>{errors.password}</span>}
+                        </div>
+                        <div style={styles.field}>
+                            <label style={styles.label}>Confirm Password</label>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => {
+                                    setConfirmPassword(e.target.value);
+                                    setErrors({...errors, confirmPassword: ''});
+                                }}
+                                placeholder="Confirm password"
+                                style={getInputStyle('confirmPassword')}
+                                disabled={loading}
+                            />
+                            {errors.confirmPassword && <span style={styles.errorText}>{errors.confirmPassword}</span>}
+                        </div>
+                        <div style={styles.buttonRow}>
+                            <button
+                                type="button"
+                                onClick={() => setStep(2)}
+                                style={styles.backBtn}
+                                disabled={loading}
+                            >
+                                Back
+                            </button>
+                            <button
+                                type="submit"
+                                style={{
+                                    ...styles.button,
+                                    opacity: loading ? 0.7 : 1,
+                                    cursor: loading ? 'not-allowed' : 'pointer'
+                                }}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <span style={styles.spinnerContainer}>
+                                        <span style={styles.spinner}></span>
+                                        Creating...
+                                    </span>
+                                ) : 'Create Account'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+                
                 <p style={styles.linkText}>
                     Already have an account?{' '}
                     <Link to="/login" style={styles.link}>
@@ -210,6 +348,22 @@ const styles = {
         fontWeight: 'bold',
         cursor: 'pointer',
         marginTop: '8px',
+        transition: 'all 0.2s'
+    },
+    buttonRow: {
+        display: 'flex',
+        gap: '10px',
+        marginTop: '8px'
+    },
+    backBtn: {
+        flex: 1,
+        padding: '14px',
+        backgroundColor: '#333',
+        color: '#fff',
+        border: 'none',
+        borderRadius: '8px',
+        fontSize: '16px',
+        cursor: 'pointer',
         transition: 'all 0.2s'
     },
     spinnerContainer: {
