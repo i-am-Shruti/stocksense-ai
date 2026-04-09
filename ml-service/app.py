@@ -34,6 +34,92 @@ except Exception as e:
     print(f"❌ Redis connection failed: {e}")
     redis_client = None
 
+# AWS S3 Setup
+import boto3
+from botocore.exceptions import ClientError
+
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'stocksense-models')
+AWS_REGION = os.environ.get('AWS_REGION', 'us-east-1')
+
+s3_client = None
+try:
+    s3_client = boto3.client(
+        's3',
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY'),
+        region_name=AWS_REGION
+    )
+    # Test connection
+    s3_client.head_bucket(Bucket=S3_BUCKET_NAME)
+    print(f"✅ Connected to S3 bucket: {S3_BUCKET_NAME}")
+except Exception as e:
+    print(f"❌ S3 connection failed: {e}")
+    s3_client = None
+
+def upload_model_to_s3(symbol):
+    """Upload trained model and scaler to S3"""
+    if not s3_client:
+        print("⚠️ S3 not available, skipping upload")
+        return False
+    try:
+        # Upload model
+        model_path = f"saved_models/{symbol}_model.keras"
+        if os.path.exists(model_path):
+            s3_client.upload_file(model_path, S3_BUCKET_NAME, f"models/{symbol}_model.keras")
+            print(f"☁️ Uploaded model to S3: {symbol}_model.keras")
+        
+        # Upload scaler
+        scaler_path = f"saved_models/{symbol}_scaler.pkl"
+        if os.path.exists(scaler_path):
+            s3_client.upload_file(scaler_path, S3_BUCKET_NAME, f"models/{symbol}_scaler.pkl")
+            print(f"☁️ Uploaded scaler to S3: {symbol}_scaler.pkl")
+        
+        return True
+    except Exception as e:
+        print(f"❌ S3 upload failed: {e}")
+        return False
+
+def download_model_from_s3(symbol):
+    """Download model and scaler from S3"""
+    if not s3_client:
+        print("⚠️ S3 not available")
+        return False
+    try:
+        # Create directory if not exists
+        os.makedirs("saved_models", exist_ok=True)
+        
+        # Download model
+        model_key = f"models/{symbol}_model.keras"
+        model_path = f"saved_models/{symbol}_model.keras"
+        try:
+            s3_client.download_file(S3_BUCKET_NAME, model_key, model_path)
+            print(f"☁️ Downloaded model from S3: {symbol}_model.keras")
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                print(f"📭 Model not found in S3: {symbol}")
+            else:
+                print(f"❌ S3 model download error: {e}")
+            return False
+        
+        # Download scaler
+        scaler_key = f"models/{symbol}_scaler.pkl"
+        scaler_path = f"saved_models/{symbol}_scaler.pkl"
+        try:
+            s3_client.download_file(S3_BUCKET_NAME, scaler_key, scaler_path)
+            print(f"☁️ Downloaded scaler from S3: {symbol}_scaler.pkl")
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                print(f"📭 Scaler not found in S3: {symbol}")
+                # Delete model if scaler not found
+                if os.path.exists(model_path):
+                    os.remove(model_path)
+            return False
+        
+        return True
+    except Exception as e:
+        print(f"❌ S3 download failed: {e}")
+        return False
+
 loaded_models = {}
 loaded_scalers = {}
 training_status = {}
@@ -104,18 +190,42 @@ def set_cached_prediction(symbol, data):
             print(f"❌ Redis set error: {e}")
 
 def get_model_and_scaler(symbol):
+    # Check in-memory cache first
+    if symbol in loaded_models and symbol in loaded_scalers:
+        return loaded_models[symbol], loaded_scalers[symbol]
+    
+    # Try to load from local disk
+    model_path = f"saved_models/{symbol}_model.keras"
+    scaler_path = f"saved_models/{symbol}_scaler.pkl"
+    
+    if not os.path.exists(model_path) or not os.path.exists(scaler_path):
+        # Try downloading from S3
+        print(f"📥 Trying to download model from S3 for {symbol}...")
+        if download_model_from_s3(symbol):
+            print(f"✅ Successfully loaded {symbol} from S3")
+        else:
+            # Model not found anywhere
+            return None, None
+    
+    # Load model
     if symbol not in loaded_models:
-        model = LSTMStockModel()
-        if not model.load(symbol):
+        try:
+            model = LSTMStockModel()
+            if not model.load(symbol):
+                return None, None
+            loaded_models[symbol] = model
+        except Exception as e:
+            print(f"❌ Failed to load model: {e}")
             return None, None
-        loaded_models[symbol] = model
-
+    
+    # Load scaler
     if symbol not in loaded_scalers:
-        path = f"saved_models/{symbol}_scaler.pkl"
-        if not os.path.exists(path):
+        try:
+            loaded_scalers[symbol] = joblib.load(scaler_path)
+        except Exception as e:
+            print(f"❌ Failed to load scaler: {e}")
             return None, None
-        loaded_scalers[symbol] = joblib.load(path)
-
+    
     return loaded_models[symbol], loaded_scalers[symbol]
 
 
@@ -335,6 +445,10 @@ def predict():
                         train_for_symbol(symbol)
                         loaded_models.pop(symbol, None)
                         loaded_scalers.pop(symbol, None)
+                        
+                        # Upload to S3 for persistence
+                        upload_model_to_s3(symbol)
+                        
                         training_status[symbol] = {"status": "completed", "start_time": training_status[symbol].get('start_time')}
                         print(f"✅ Training completed for {symbol}")
                         # Clear prediction cache so next request gets fresh prediction
