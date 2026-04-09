@@ -5,10 +5,12 @@ import joblib
 import os
 import yfinance as yf
 import sys
+import json
 from datetime import datetime, timedelta
 from functools import lru_cache
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import redis
 
 sys.path.append(os.path.dirname(__file__))
 from model.lstm_model import LSTMStockModel
@@ -23,27 +25,73 @@ CORS(app, resources={
     ], "supports_credentials": True}
 })
 
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+try:
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    redis_client.ping()
+    print(f"Connected to Redis: {REDIS_URL}")
+except Exception as e:
+    print(f"Redis connection failed: {e}")
+    redis_client = None
+
 loaded_models = {}
 loaded_scalers = {}
 training_status = {}
 
 executor = ThreadPoolExecutor(max_workers=4)
 
-stock_cache = {}
-stock_cache_lock = threading.Lock()
 STOCK_CACHE_TTL = 60
 
 def get_cached_stock(symbol):
-    with stock_cache_lock:
-        if symbol in stock_cache:
-            data, timestamp = stock_cache[symbol]
-            if (datetime.now() - timestamp).total_seconds() < STOCK_CACHE_TTL:
-                return data
+    if redis_client:
+        try:
+            cached = redis_client.get(f"stock:{symbol}")
+            if cached:
+                return json.loads(cached)
+        except Exception as e:
+            print(f"Redis get error: {e}")
     return None
 
 def set_cached_stock(symbol, data):
-    with stock_cache_lock:
-        stock_cache[symbol] = (data, datetime.now())
+    if redis_client:
+        try:
+            redis_client.setex(f"stock:{symbol}", STOCK_CACHE_TTL, json.dumps(data))
+        except Exception as e:
+            print(f"Redis set error: {e}")
+
+def get_cached_history(symbol, period):
+    if redis_client:
+        try:
+            cached = redis_client.get(f"history:{symbol}:{period}")
+            if cached:
+                return json.loads(cached)
+        except Exception as e:
+            print(f"Redis get error: {e}")
+    return None
+
+def set_cached_history(symbol, period, data):
+    if redis_client:
+        try:
+            redis_client.setex(f"history:{symbol}:{period}", STOCK_CACHE_TTL, json.dumps(data))
+        except Exception as e:
+            print(f"Redis set error: {e}")
+
+def get_cached_prediction(symbol):
+    if redis_client:
+        try:
+            cached = redis_client.get(f"prediction:{symbol}")
+            if cached:
+                return json.loads(cached)
+        except Exception as e:
+            print(f"Redis get error: {e}")
+    return None
+
+def set_cached_prediction(symbol, data):
+    if redis_client:
+        try:
+            redis_client.setex(f"prediction:{symbol}", STOCK_CACHE_TTL * 5, json.dumps(data))
+        except Exception as e:
+            print(f"Redis set error: {e}")
 
 def get_model_and_scaler(symbol):
     if symbol not in loaded_models:
@@ -249,6 +297,12 @@ def predict():
 
         symbol = data['symbol'].upper()
         auto_train = data.get('auto_train', False)
+        
+        cached = get_cached_prediction(symbol)
+        if cached:
+            print(f"Cache hit for {symbol}")
+            return jsonify(cached)
+        
         print(f"Prediction for: {symbol}")
 
         # Try to get ML model
@@ -284,6 +338,7 @@ def predict():
 
         # Fallback to simple prediction if ML fails
         if ml_prediction is None:
+            processor = DataProcessor()
             df = processor.fetch_stock_data(symbol, period="3mo")
             ml_prediction = simple_prediction(df)
             prediction_method = "moving_average"
@@ -292,12 +347,14 @@ def predict():
             return jsonify({"error": "Could not generate prediction"}), 500
 
         print(f"Predicted: ${ml_prediction} (method: {prediction_method})")
-        return jsonify({
+        result = {
             "symbol": symbol,
             "predictedPrice": ml_prediction,
             "method": prediction_method,
             "currency": "USD"
-        })
+        }
+        set_cached_prediction(symbol, result)
+        return jsonify(result)
 
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -339,24 +396,6 @@ def realtime(symbol):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-history_cache = {}
-history_cache_lock = threading.Lock()
-
-def get_cached_history(symbol, period):
-    with history_cache_lock:
-        key = f"{symbol}_{period}"
-        if key in history_cache:
-            data, timestamp = history_cache[key]
-            if (datetime.now() - timestamp).total_seconds() < STOCK_CACHE_TTL:
-                return data
-    return None
-
-def set_cached_history(symbol, period, data):
-    with history_cache_lock:
-        key = f"{symbol}_{period}"
-        history_cache[key] = (data, datetime.now())
 
 
 @app.route('/stock/history/<symbol>', methods=['GET'])
