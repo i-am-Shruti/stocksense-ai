@@ -132,6 +132,7 @@ public class StockService {
     private StockDataDTO convertToDTO(StockData stock) {
         StockDataDTO dto = new StockDataDTO();
         // MAPPER: Model → DTO
+        dto.setId(stock.getId());
         dto.setSymbol(stock.getSymbol());
         dto.setCompanyName(stock.getCompanyName());
         dto.setOpenPrice(stock.getOpenPrice());
