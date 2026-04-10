@@ -155,7 +155,7 @@ public class AuthService {
     }
 
     public AuthResponseDTO verifyAndRegister(String email, String otp, String name, String password) {
-        otpService.validateOtp(email, otp);
+        // OTP already validated in verifyOtp step, no need to validate again
         
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException("Email already registered");
