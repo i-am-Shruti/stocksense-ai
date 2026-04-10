@@ -131,21 +131,26 @@ public class AuthService {
 
     @Async
     public void sendRegistrationOtpAsync(String email) {
+        log.info("=== SEND OTP ASYNC START for: {} ===", email);
         try {
             String otp = otpService.generateOtp(email);
+            log.info("=== OTP GENERATED: {} ===", otp);
             emailService.sendOtpEmail(email, otp);
-            log.info("Registration OTP sent to: {}", email);
+            log.info("=== SEND OTP ASYNC END for: {} ===", email);
         } catch (Exception e) {
-            log.error("Failed to send OTP: {}", e.getMessage());
+            log.error("=== SEND OTP ASYNC FAILED for: {} ===", email, e);
         }
     }
 
     public String sendRegistrationOtp(String email) {
+        log.info(">>> sendRegistrationOtp called for: {}", email);
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException("Email already registered");
         }
         
+        log.info(">>> Calling sendRegistrationOtpAsync for: {}", email);
         sendRegistrationOtpAsync(email);
+        log.info(">>> Returning success message for: {}", email);
         return "OTP sent to your email";
     }
 

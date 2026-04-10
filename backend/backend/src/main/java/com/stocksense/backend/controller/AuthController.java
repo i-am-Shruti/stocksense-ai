@@ -28,6 +28,12 @@ public class AuthController {
     private final AuthService authService;
     private final JwtUtils jwtUtils;
 
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        log.info("=== HEALTH CHECK HIT ===");
+        return ResponseEntity.ok("Backend is running! StockSense AI OTP Service Active.");
+    }
+
     // POST /api/auth/register
     @PostMapping("/register")
     // handles: POST http://localhost:8085/api/auth/register
