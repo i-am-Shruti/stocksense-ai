@@ -28,12 +28,8 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
-    private OtpService otpService;
-
-    @org.springframework.beans.factory.annotation.Autowired
-    public void setOtpService(OtpService otpService) {
-        this.otpService = otpService;
-    }
+    private final OtpService otpService;
+    private final EmailService emailService;
 
     @Cacheable(value = "userEmail", key = "#request.email", unless = "#result == null")
     public AuthResponseDTO register(RegisterRequestDTO request){
@@ -106,11 +102,11 @@ public class AuthService {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("Email not registered"));
             
-            otpService.generateOtp(email);
+            String otp = otpService.generateOtp(email);
+            emailService.sendPasswordResetEmail(email, otp);
             log.info("Forgot password OTP sent to: {}", email);
         } catch (Exception e) {
             log.error("Failed to send OTP: {}", e.getMessage());
-            // Don't rethrow - we don't want to reveal if email exists or not
         }
     }
 
@@ -122,9 +118,7 @@ public class AuthService {
 
     @CacheEvict(value = "userProfile", key = "#email")
     public String resetPassword(String email, String otp, String newPassword) {
-        if (!otpService.validateOtp(email, otp)) {
-            throw new RuntimeException("Invalid or expired OTP");
-        }
+        otpService.validateOtp(email, otp);
         
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -138,7 +132,8 @@ public class AuthService {
     @Async
     public void sendRegistrationOtpAsync(String email) {
         try {
-            otpService.generateOtp(email);
+            String otp = otpService.generateOtp(email);
+            emailService.sendOtpEmail(email, otp);
             log.info("Registration OTP sent to: {}", email);
         } catch (Exception e) {
             log.error("Failed to send OTP: {}", e.getMessage());
@@ -155,9 +150,7 @@ public class AuthService {
     }
 
     public AuthResponseDTO verifyAndRegister(String email, String otp, String name, String password) {
-        if (!otpService.validateOtp(email, otp)) {
-            throw new RuntimeException("Invalid or expired OTP");
-        }
+        otpService.validateOtp(email, otp);
         
         if (userRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException("Email already registered");
@@ -217,8 +210,8 @@ public class AuthService {
         );
     }
 
-    public boolean validateOtp(String email, String otp) {
-        return otpService.validateOtp(email, otp);
+    public void validateOtp(String email, String otp) {
+        otpService.validateOtp(email, otp);
     }
 
     @CacheEvict(value = {"userProfile", "userEmail"}, allEntries = true)

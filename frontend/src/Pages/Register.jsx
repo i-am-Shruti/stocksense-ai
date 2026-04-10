@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { toast } from 'react-toastify';
 import { authAPI } from '../services/api';
 
 const Register = () => {
-    const [step, setStep] = useState(1); // 1: email, 2: OTP, 3: password
+    const [step, setStep] = useState(1);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [otp, setOtp] = useState('');
@@ -15,8 +15,32 @@ const Register = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
+    const [otpExpiry, setOtpExpiry] = useState(null);
+    const [timeLeft, setTimeLeft] = useState(0);
     const { register } = useAuth();
     const navigate = useNavigate();
+
+    useEffect(() => {
+        if (step === 2 && otpExpiry) {
+            const timer = setInterval(() => {
+                const remaining = Math.max(0, Math.floor((otpExpiry - Date.now()) / 1000));
+                setTimeLeft(remaining);
+                if (remaining <= 0) {
+                    clearInterval(timer);
+                    toast.error('OTP expired! Please request a new one.');
+                    setStep(1);
+                    setOtpExpiry(null);
+                }
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, [step, otpExpiry]);
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
 
     const validateEmail = () => {
         const newErrors = {};
@@ -37,6 +61,8 @@ const Register = () => {
         try {
             await authAPI.sendOtp(email);
             toast.success('OTP sent to your email!');
+            setOtpExpiry(Date.now() + 5 * 60 * 1000);
+            setTimeLeft(5 * 60);
             setStep(2);
         } catch (error) {
             toast.error(error.response?.data?.message || 'Failed to send OTP');
@@ -132,8 +158,10 @@ const Register = () => {
                 {step === 1 && (
                     <form onSubmit={handleSendOtp}>
                         <div style={styles.field}>
-                            <label style={styles.label}>Email</label>
+                            <label htmlFor="email" style={styles.label}>Email</label>
                             <input
+                                id="email"
+                                name="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => {
@@ -143,6 +171,7 @@ const Register = () => {
                                 placeholder="shruti@gmail.com"
                                 style={getInputStyle('email')}
                                 disabled={loading}
+                                autoComplete="email"
                             />
                             {errors.email && <span style={styles.errorText}>{errors.email}</span>}
                         </div>
@@ -163,8 +192,10 @@ const Register = () => {
                 {step === 2 && (
                     <form onSubmit={handleVerifyOtp}>
                         <div style={styles.field}>
-                            <label style={styles.label}>Enter OTP sent to {email}</label>
+                            <label htmlFor="otp" style={styles.label}>Enter OTP sent to {email}</label>
                             <input
+                                id="otp"
+                                name="otp"
                                 type="text"
                                 value={otp}
                                 onChange={(e) => setOtp(e.target.value)}
@@ -172,7 +203,16 @@ const Register = () => {
                                 style={styles.input}
                                 maxLength={6}
                                 disabled={loading}
+                                autoComplete="one-time-code"
                             />
+                        </div>
+                        <div style={styles.timerContainer}>
+                            <span style={{
+                                ...styles.timerText,
+                                color: timeLeft <= 60 ? '#ff4757' : '#00d4ff'
+                            }}>
+                                ⏱️ OTP expires in: {formatTime(timeLeft)}
+                            </span>
                         </div>
                         <div style={styles.buttonRow}>
                             <button
@@ -201,8 +241,10 @@ const Register = () => {
                 {step === 3 && (
                     <form onSubmit={handleRegister}>
                         <div style={styles.field}>
-                            <label style={styles.label}>Full Name</label>
+                            <label htmlFor="name" style={styles.label}>Full Name</label>
                             <input
+                                id="name"
+                                name="name"
                                 type="text"
                                 value={name}
                                 onChange={(e) => {
@@ -212,13 +254,16 @@ const Register = () => {
                                 placeholder="Shruti Priya"
                                 style={getInputStyle('name')}
                                 disabled={loading}
+                                autoComplete="name"
                             />
                             {errors.name && <span style={styles.errorText}>{errors.name}</span>}
                         </div>
                         <div style={styles.field}>
-                            <label style={styles.label}>Password</label>
+                            <label htmlFor="password" style={styles.label}>Password</label>
                             <div style={styles.passwordWrapper}>
                                 <input
+                                    id="password"
+                                    name="password"
                                     type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => {
@@ -228,6 +273,7 @@ const Register = () => {
                                     placeholder="Min 6 characters"
                                     style={getInputStyle('password')}
                                     disabled={loading}
+                                    autoComplete="new-password"
                                 />
                                 <button
                                     type="button"
@@ -240,9 +286,11 @@ const Register = () => {
                             {errors.password && <span style={styles.errorText}>{errors.password}</span>}
                         </div>
                         <div style={styles.field}>
-                            <label style={styles.label}>Confirm Password</label>
+                            <label htmlFor="confirmPassword" style={styles.label}>Confirm Password</label>
                             <div style={styles.passwordWrapper}>
                                 <input
+                                    id="confirmPassword"
+                                    name="confirmPassword"
                                     type={showConfirmPassword ? "text" : "password"}
                                     value={confirmPassword}
                                     onChange={(e) => {
@@ -252,6 +300,7 @@ const Register = () => {
                                     placeholder="Confirm password"
                                     style={getInputStyle('confirmPassword')}
                                     disabled={loading}
+                                    autoComplete="new-password"
                                 />
                                 <button
                                     type="button"
@@ -333,6 +382,14 @@ const styles = {
         fontWeight: 'normal'
     },
     field: { marginBottom: '20px' },
+    timerContainer: {
+        textAlign: 'center',
+        marginBottom: '20px'
+    },
+    timerText: {
+        fontSize: '14px',
+        fontWeight: 'bold'
+    },
     passwordWrapper: {
         position: 'relative',
         display: 'flex',

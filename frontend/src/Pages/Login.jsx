@@ -50,8 +50,10 @@ const Login = () => {
                 <h2 style={styles.subtitle}>Login</h2>
                 <form onSubmit={handleSubmit}>
                     <div style={styles.field}>
-                        <label style={styles.label}>Email</label>
+                        <label htmlFor="email" style={styles.label}>Email</label>
                         <input
+                            id="email"
+                            name="email"
                             type="email"
                             value={email}
                             onChange={(e) => {
@@ -67,11 +69,13 @@ const Login = () => {
                         {emailError && <span style={styles.errorText}>{emailError}</span>}
                     </div>
                     <div style={styles.field}>
-                        <label style={styles.label}>
+                        <label htmlFor="password" style={styles.label}>
                             Password
                         </label>
                         <div style={styles.passwordWrapper}>
                             <input
+                                id="password"
+                                name="password"
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) =>

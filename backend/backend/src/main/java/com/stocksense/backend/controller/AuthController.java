@@ -94,10 +94,14 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<String> verifyOtp(@RequestBody ResetPasswordRequestDTO request){
         log.info("Verify OTP for: {}", request.getEmail());
-        if (authService.validateOtp(request.getEmail(), request.getOtp())) {
+        try {
+            authService.validateOtp(request.getEmail(), request.getOtp());
             return ResponseEntity.ok("OTP verified");
+        } catch (com.stocksense.backend.service.OtpService.OtpExpiredException e) {
+            return ResponseEntity.status(HttpStatus.GONE).body(e.getMessage());
+        } catch (com.stocksense.backend.service.OtpService.OtpInvalidException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        return ResponseEntity.badRequest().body("Invalid OTP");
     }
 
     @PutMapping("/profile")
