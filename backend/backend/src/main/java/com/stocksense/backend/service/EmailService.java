@@ -41,7 +41,7 @@ public class EmailService {
 
             mailSender.send(message);
             log.info("OTP email sent successfully to: {}", toEmail);
-        } catch (MessagingException e) {
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
             log.error("Failed to send OTP email to {}: {}", toEmail, e.getMessage());
         }
     }
@@ -61,7 +61,7 @@ public class EmailService {
 
             mailSender.send(message);
             log.info("Password reset email sent successfully to: {}", toEmail);
-        } catch (MessagingException e) {
+        } catch (MessagingException | java.io.UnsupportedEncodingException e) {
             log.error("Failed to send password reset email to {}: {}", toEmail, e.getMessage());
         }
     }
