@@ -122,14 +122,16 @@ const Register = () => {
         
         setLoading(true);
         try {
-            // Call register with OTP verification status
-            await authAPI.register({
+            const response = await authAPI.register({
                 email,
                 name,
                 password,
                 otp,
                 verified: true
             });
+            const { token, ...userData } = response.data;
+            localStorage.setItem('token', token);
+            localStorage.setItem('user', JSON.stringify(userData));
             toast.success('Registration successful! Welcome to StockSense AI!');
             navigate('/dashboard');
         } catch (error) {
