@@ -210,8 +210,18 @@ def get_model_and_scaler(symbol):
         if download_model_from_s3(symbol):
             print(f"✅ Successfully loaded {symbol} from S3")
         else:
-            # Model not found anywhere
-            return None, None
+            # Fallback: check git-tracked models in package directory
+            package_model_path = f"model/saved_models/{symbol}_model.keras"
+            package_scaler_path = f"model/saved_models/{symbol}_scaler.pkl"
+            if os.path.exists(package_model_path) and os.path.exists(package_scaler_path):
+                os.makedirs("saved_models", exist_ok=True)
+                import shutil
+                shutil.copy(package_model_path, model_path)
+                shutil.copy(package_scaler_path, scaler_path)
+                print(f"✅ Loaded {symbol} from git-tracked package models")
+            else:
+                # Model not found anywhere
+                return None, None
     
     # Load model
     if symbol not in loaded_models:
@@ -389,6 +399,10 @@ def train():
                 train_for_symbol(symbol)
                 loaded_models.pop(symbol, None)
                 loaded_scalers.pop(symbol, None)
+                
+                # Upload to S3 for persistence
+                upload_model_to_s3(symbol)
+                
                 training_status[symbol] = {"status": "completed", "start_time": training_status[symbol].get('start_time')}
             except Exception as e:
                 training_status[symbol] = {"status": "failed", "error": str(e)}
