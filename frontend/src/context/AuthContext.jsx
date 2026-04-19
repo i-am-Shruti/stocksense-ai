@@ -9,8 +9,7 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         const savedUser = localStorage.getItem('user');
-        const token = localStorage.getItem('token');
-        if (savedUser && token) {
+        if (savedUser) {
             setUser(JSON.parse(savedUser));
         }
         setLoading(false);
@@ -18,8 +17,7 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (name, email, password) => {
         const response = await authAPI.register({ name, email, password });
-        const { token, ...userData } = response.data;
-        localStorage.setItem('token', token);
+        const { ...userData } = response.data;
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         return response.data;
@@ -27,21 +25,24 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password) => {
         const response = await authAPI.login({ email, password });
-        const { token, ...userData } = response.data;
-        localStorage.setItem('token', token);
+        const { ...userData } = response.data;
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
         return response.data;
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
+    const logout = async () => {
+        try {
+            await authAPI.logout();
+        } catch (e) {
+            // ignore logout errors
+        }
         localStorage.removeItem('user');
         setUser(null);
     };
 
     const isAuthenticated = () => {
-        return !!localStorage.getItem('token');
+        return !!localStorage.getItem('user');
     };
 
     const value = useMemo(() => ({

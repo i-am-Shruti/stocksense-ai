@@ -8,22 +8,13 @@ const createAxiosInstance = (baseURL) => {
         baseURL,
         headers: { "Content-Type": 'application/json' },
         timeout: 15000,
-    });
-
-    instance.interceptors.request.use((config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
+        withCredentials: true,
     });
 
     instance.interceptors.response.use(
         (response) => response,
         (error) => {
             if (error.response?.status === 401) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
                 window.location.href = '/login';
             }
             return Promise.reject(error);
@@ -55,6 +46,7 @@ const setCachedData = (key, data) => {
 export const authAPI = {
     register: (data) => api.post('/auth/register', data),
     login: (data) => api.post('/auth/login', data),
+    logout: () => api.post('/auth/logout'),
     forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
     resetPassword: (data) => api.post('/auth/reset-password', data),
     sendOtp: (email) => api.post('/auth/send-otp', { email }),

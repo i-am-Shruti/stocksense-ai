@@ -3,6 +3,7 @@ package com.stocksense.backend.config;
 import com.stocksense.backend.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -41,19 +42,35 @@ public class JwtFilter extends OncePerRequestFilter {
         log.debug("JwtFilter running for: {} method: {}", request.getRequestURI(), request.getMethod());
 
         // Step 1: Get Authorization header from request
-        String authHeader = request.getHeader("Authorization");
+        //String authHeader = request.getHeader("Authorization");
         // Frontend sends: Authorization: Bearer eyJhbGci...
         //                              ↑ must start with "Bearer "
 
         String token = null;
         String email = null;
 
-        // Step 2: Extract token from header
+        // Try Authorization header first (Bearer token)
+        String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
             // "Bearer eyJhbGci..." → "eyJhbGci..."
             // substring(7) removes first 7 characters "Bearer "
+        }
+        // If no header token, try cookie
+        if (token == null) {
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("token".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+        }
 
+        // Extract email from token
+        if (token != null && !token.isEmpty()) {
             try {
                 email = jwtUtils.getEmailFromToken(token);
                 // extract email from token payload

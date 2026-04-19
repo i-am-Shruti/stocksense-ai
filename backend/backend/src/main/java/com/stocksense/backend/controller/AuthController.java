@@ -8,9 +8,12 @@ import com.stocksense.backend.dto.ResetPasswordRequestDTO;
 import com.stocksense.backend.dto.UpdateProfileRequestDTO;
 import com.stocksense.backend.service.AuthService;
 import com.stocksense.backend.utils.JwtUtils;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +31,27 @@ public class AuthController {
     private final AuthService authService;
     private final JwtUtils jwtUtils;
 
+    @Value("${jwt.expiration:86400000}")
+    private long jwtExpiration;
+
+    private void setTokenCookie(HttpServletResponse response, String token) {
+        Cookie cookie = new Cookie("token", token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge((int) (jwtExpiration / 1000));
+        response.addCookie(cookie);
+    }
+
+    private void clearTokenCookie(HttpServletResponse response) {
+        Cookie cookie = new Cookie("token", null);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
+    }
+
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         log.info("=== HEALTH CHECK HIT ===");
@@ -40,31 +64,43 @@ public class AuthController {
     public ResponseEntity<AuthResponseDTO> register(
         @RequestBody // @RequestBody = read JSON from request body → convert to DTO
         @Valid       // trigger validation (@NotBlank, @Email etc)
-        RegisterRequestDTO request){
+        RegisterRequestDTO request, HttpServletResponse servletResponse){
         log.info("Register request received for: {}", request.getEmail());
         
+        AuthResponseDTO response;
         if (request.getOtp() != null && request.getVerified() != null && request.getVerified()) {
-            AuthResponseDTO response = authService.verifyAndRegister(
+            response = authService.verifyAndRegister(
                     request.getEmail(),
                     request.getOtp(),
                     request.getName(),
                     request.getPassword()
             );
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } else {
+            response = authService.register(request);
         }
         
-        AuthResponseDTO response  = authService.register(request);
+        setTokenCookie(servletResponse, response.getToken());
+        response.setToken(null);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        // HttpStatus.CREATED = HTTP 201
-        // means "resource was successfully CREATED"
     }
     // POST /api/auth/login
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseDTO> login(@RequestBody @Valid LoginRequestDTO request){
+    public ResponseEntity<AuthResponseDTO> login(
+            @RequestBody @Valid LoginRequestDTO request,
+            HttpServletResponse servletResponse){
         log.info("Login request received for: {}", request.getEmail());
-        AuthResponseDTO response  = authService.login(request);
+        AuthResponseDTO response = authService.login(request);
+        
+        setTokenCookie(servletResponse, response.getToken());
+        response.setToken(null);
         return ResponseEntity.ok(response);
+    }
+    
+    @PostMapping("/logout")
+    public ResponseEntity<String> logout(HttpServletResponse servletResponse){
+        clearTokenCookie(servletResponse);
+        return ResponseEntity.ok("Logged out successfully");
     }
 
     @PostMapping("/forgot-password")
