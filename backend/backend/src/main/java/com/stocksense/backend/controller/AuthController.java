@@ -35,21 +35,16 @@ public class AuthController {
     private long jwtExpiration;
 
     private void setTokenCookie(HttpServletResponse response, String token) {
-        Cookie cookie = new Cookie("token", token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge((int) (jwtExpiration / 1000));
-        response.addCookie(cookie);
+        // Set cookie via header so SameSite can be included for cross-site requests
+        long maxAgeSeconds = jwtExpiration / 1000;
+        String cookieValue = String.format("token=%s; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=%d", token, maxAgeSeconds);
+        response.addHeader("Set-Cookie", cookieValue);
     }
 
     private void clearTokenCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie("token", null);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        // Clear cookie via header and include SameSite=None to match set cookie
+        String cookieValue = "token=; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=0";
+        response.addHeader("Set-Cookie", cookieValue);
     }
 
     @GetMapping("/health")
