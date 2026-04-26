@@ -4,18 +4,41 @@ import axios from 'axios';
 const API_URL = '/api';
 const ML_API_URL = '/ml';
 
+const getAuthToken = () => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+        try {
+            const parsed = JSON.parse(userData);
+            return parsed.token || null;
+        } catch {
+            return null;
+        }
+    }
+    return null;
+};
+
 const createAxiosInstance = (baseURL) => {
     const instance = axios.create({
         baseURL,
         headers: { "Content-Type": 'application/json' },
         timeout: 15000,
-        withCredentials: true,
     });
+
+    instance.interceptors.request.use(
+        (config) => {
+            const token = getAuthToken();
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
+            return config;
+        }
+    );
 
     instance.interceptors.response.use(
         (response) => response,
         (error) => {
             if (error.response?.status === 401) {
+                localStorage.removeItem('user');
                 window.location.href = '/login';
             }
             return Promise.reject(error);

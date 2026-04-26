@@ -18,20 +18,24 @@ export const AuthProvider = ({ children }) => {
     const register = async (name, email, password) => {
         const response = await authAPI.register({ name, email, password });
         const { token, ...userData } = response.data;
-        // ✅ Token is in HttpOnly cookie (secure, auto-sent by browser)
-        // ❌ Don't save null token to localStorage - defeats the security purpose
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
+        if (token) {
+            localStorage.setItem('user', JSON.stringify({ ...userData, token }));
+        } else {
+            localStorage.setItem('user', JSON.stringify(userData));
+        }
+        setUser({ ...userData, token });
         return response.data;
     };
 
     const login = async (email, password) => {
         const response = await authAPI.login({ email, password });
         const { token, ...userData } = response.data;
-        // ✅ Token is in HttpOnly cookie (secure, auto-sent by browser)
-        // ❌ Don't save null token to localStorage - defeats the security purpose
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
+        if (token) {
+            localStorage.setItem('user', JSON.stringify({ ...userData, token }));
+        } else {
+            localStorage.setItem('user', JSON.stringify(userData));
+        }
+        setUser({ ...userData, token });
         return response.data;
     };
 
@@ -39,19 +43,9 @@ export const AuthProvider = ({ children }) => {
         try {
             await authAPI.logout();
         } catch (e) {
-            console.warn('⚠️ Logout API Error:', e);
-            console.error('Error details:', {
-                message: e.message,
-                status: e.response?.status,
-                statusText: e.response?.statusText,
-                data: e.response?.data,
-                error: e
-            });
-            // Continue with local logout even if backend call fails
+            console.warn('Logout API Error:', e.message);
         }
         localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        console.log('✅ User logged out successfully - localStorage cleared');
         setUser(null);
     };
 
