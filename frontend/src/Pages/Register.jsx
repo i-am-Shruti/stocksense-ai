@@ -130,7 +130,9 @@ const Register = () => {
                 verified: true
             });
             const { token, ...userData } = response.data;
-            localStorage.setItem('token', token);
+            // ✅ Token is already in HttpOnly cookie (secure, auto-sent)
+            // ❌ Don't save null token to localStorage
+            // ✅ Save only non-sensitive user data
             localStorage.setItem('user', JSON.stringify(userData));
             toast.success('Registration successful! Welcome to StockSense AI!');
             navigate('/dashboard');
@@ -282,7 +284,7 @@ const Register = () => {
                                     style={styles.showPasswordBtn}
                                     onClick={() => setShowPassword(!showPassword)}
                                 >
-                                    {showPassword ? '🙈' : '👁️'}
+                                    {showPassword ? ' ⃠ ' : '👁️'}
                                 </button>
                             </div>
                             {errors.password && <span style={styles.errorText}>{errors.password}</span>}
@@ -309,7 +311,7 @@ const Register = () => {
                                     style={styles.showPasswordBtn}
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                 >
-                                    {showConfirmPassword ? '🙈' : '👁️'}
+                                    {showConfirmPassword ? ' ⃠ ' : '👁️'}
                                 </button>
                             </div>
                             {errors.confirmPassword && <span style={styles.errorText}>{errors.confirmPassword}</span>}

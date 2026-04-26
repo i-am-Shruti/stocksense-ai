@@ -91,7 +91,7 @@ const Login = () => {
                                 style={styles.showPasswordBtn}
                                 onClick={() => setShowPassword(!showPassword)}
                             >
-                                {showPassword ? '🙈' : '👁️'}
+                                {showPassword ? ' ⃠ ' : '👁️'}
                             </button>
                         </div>
                     </div>

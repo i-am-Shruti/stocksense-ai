@@ -521,7 +521,7 @@ const DashBoard = () => {
                                             style={styles.showPasswordBtn}
                                             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                                         >
-                                            {showCurrentPassword ? '🙈' : '👁️'}
+                                            {showCurrentPassword ? ' ⃠ ' : '👁️'}
                                         </button>
                                     </div>
                                 </div>
@@ -539,7 +539,7 @@ const DashBoard = () => {
                                             style={styles.showPasswordBtn}
                                             onClick={() => setShowNewPassword(!showNewPassword)}
                                         >
-                                            {showNewPassword ? '🙈' : '👁️'}
+                                            {showNewPassword ? ' ⃠ ' : '👁️'}
                                         </button>
                                     </div>
                                 </div>
