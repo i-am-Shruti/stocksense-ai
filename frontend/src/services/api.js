@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const API_URL = 'https://stocksense-ai-backend-sdgv.onrender.com/api';
-const ML_API_URL = 'https://stocksense-ai-bdd9.onrender.com';
+// Use Vercel rewrites: keep API paths relative so Vercel can proxy /api and /ml to the correct services.
+const API_URL = '/api';
+const ML_API_URL = '/ml';
 
 const createAxiosInstance = (baseURL) => {
     const instance = axios.create({
