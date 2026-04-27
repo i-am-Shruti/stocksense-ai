@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Use Vercel rewrites: keep API paths relative so Vercel can proxy /api and /ml to the correct services.
 const API_URL = '/api';
-const ML_API_URL = 'https://stocksense-ai-bdd9.onrender.com';
+const ML_API_URL = '/ml';
 
 const getAuthToken = () => {
     const userData = localStorage.getItem('user');
@@ -17,16 +17,12 @@ const getAuthToken = () => {
     return null;
 };
 
-const createAxiosInstance = (baseURL, needsCredentials = false) => {
-    const config = {
+const createAxiosInstance = (baseURL) => {
+    const instance = axios.create({
         baseURL,
         headers: { "Content-Type": 'application/json' },
         timeout: 15000,
-    };
-    if (needsCredentials) {
-        config.withCredentials = true;
-    }
-    const instance = axios.create(config);
+    });
 
     instance.interceptors.request.use(
         (config) => {
@@ -53,7 +49,7 @@ const createAxiosInstance = (baseURL, needsCredentials = false) => {
 };
 
 const api = createAxiosInstance(API_URL);
-const mlApi = createAxiosInstance(ML_API_URL, true);
+const mlApi = createAxiosInstance(ML_API_URL);
 
 const requestCache = new Map();
 const CACHE_DURATION = 30000;
